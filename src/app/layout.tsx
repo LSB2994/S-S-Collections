@@ -14,8 +14,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Shop — Easy shopping, no sign up",
-  description: "Browse and buy. No account needed. Pay by bank QR, leave your contact for admin.",
+  title: "S&S Collections",
+  description: "Browse and buy. No account needed.",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [{ url: "/logo.png" }],
+    apple: [{ url: "/logo.png" }],
+  },
 };
 
 export const viewport: Viewport = {

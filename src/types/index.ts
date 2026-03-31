@@ -4,7 +4,10 @@ export interface Product {
   name: string;
   description: string;
   price: number;
+  /** First / primary image (thumbnail in grids). */
   imageUrl?: string;
+  /** All gallery image URLs when configured in admin. */
+  imageUrls?: string[];
   stock: number;
   active: boolean;
   createdAt: string;
@@ -34,8 +37,9 @@ export interface Order {
   total: number;
   contactPhone: string;
   contactTelegram?: string;
-  bankId: string;
-  bankName: string;
+  /** Legacy: optional when checkout does not use bank / QR selection. */
+  bankId?: string;
+  bankName?: string;
   status: "pending" | "paid" | "cancelled";
   createdAt: string;
   updatedAt: string;

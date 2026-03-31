@@ -1,12 +1,15 @@
 import type { ReactNode, SelectHTMLAttributes } from "react";
+import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { AdminPageHeader, AdminSecondaryLink } from "@/components/admin/AdminPageHeader";
+import { ActionModal } from "@/components/admin/ActionModal";
 import { ConfirmFormButton } from "@/components/admin/ConfirmFormButton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabaseAdminFetch } from "@/lib/supabaseAdmin";
 
 type MainCategory = {
@@ -102,12 +105,34 @@ function Select(
   );
 }
 
-export default async function TelegramCategoriesPage() {
+export default async function TelegramCategoriesPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ section?: string; q?: string; status?: string }>;
+}) {
+  const params = await searchParams;
   const [mains, categories] = await Promise.all([listMainCategories(), listCategories()]);
+  const q = (params?.q ?? "").trim().toLowerCase();
+  const statusFilter = params?.status ?? "all";
+  const sectionSlug = (params?.section ?? "").toLowerCase();
+  const selectedMain = mains.find((m) => m.slug.toLowerCase() === sectionSlug) ?? mains[0] ?? null;
+  const visibleMainIds = selectedMain ? new Set([selectedMain.id]) : new Set<string>();
+  const filteredCategories = (selectedMain ? categories.filter((c) => visibleMainIds.has(c.main_category_id)) : categories).filter(
+    (c) => {
+      if (statusFilter === "active" && !c.active) return false;
+      if (statusFilter === "inactive" && c.active) return false;
+      if (!q) return true;
+      return [c.name, c.slug, c.main_categories?.name ?? ""].join(" ").toLowerCase().includes(q);
+    }
+  );
   const activeMains = mains.filter((m) => m.active);
+  const uniqueDisplayNames = Array.from(new Set(filteredCategories.map((c) => c.name))).sort((a, b) =>
+    a.localeCompare(b)
+  );
+  const uniqueSlugs = Array.from(new Set(filteredCategories.map((c) => c.slug))).sort((a, b) => a.localeCompare(b));
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-7">
       <AdminPageHeader
         title="Categories"
         description="Main sections (Man / Woman / Kid) are seeded in the database. Add sub-categories here, then assign products to them on the Products page."
@@ -116,7 +141,40 @@ export default async function TelegramCategoriesPage() {
         <AdminSecondaryLink href="/admin">Dashboard</AdminSecondaryLink>
       </AdminPageHeader>
 
-      <Card>
+      <Card className="rounded-2xl border-slate-200 bg-white shadow-sm">
+        <CardContent className="pt-6">
+          <div className="flex flex-wrap gap-2">
+            {mains.map((m) => {
+              const active = selectedMain?.id === m.id;
+              return (
+                <Button
+                  key={m.id}
+                  variant={active ? "default" : "secondary"}
+                  size="sm"
+                  className={active ? "rounded-xl bg-orange-500 hover:bg-orange-600" : "rounded-xl"}
+                  asChild
+                >
+                  <Link href={`/admin/telegram-categories?section=${encodeURIComponent(m.slug)}`}>{m.name}</Link>
+                </Button>
+              );
+            })}
+          </div>
+          <form className="mt-4 grid gap-3 md:grid-cols-3">
+            <input type="hidden" name="section" value={selectedMain?.slug ?? ""} />
+            <Input name="q" placeholder="Search display name or slug..." defaultValue={params?.q ?? ""} />
+            <Select name="status" defaultValue={statusFilter}>
+              <option value="all">All statuses</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </Select>
+            <Button type="submit" className="md:justify-self-start">
+              Filter
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-2xl border-slate-200 bg-white shadow-sm">
         <CardHeader>
           <CardTitle>New sub-category</CardTitle>
           <CardDescription>
@@ -127,7 +185,7 @@ export default async function TelegramCategoriesPage() {
           <form action={createCategoryAction} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 lg:items-end">
             <div className="space-y-2">
               <Label>Main section</Label>
-              <Select name="main_category_id" required defaultValue="">
+              <Select name="main_category_id" required defaultValue={selectedMain?.id ?? ""}>
                 <option value="" disabled>
                   Choose section…
                 </option>
@@ -140,11 +198,11 @@ export default async function TelegramCategoriesPage() {
             </div>
             <div className="space-y-2">
               <Label>Display name</Label>
-              <Input name="name" placeholder="T-Shirts" required />
+              <Input name="name" placeholder="T-Shirts" list="subcategory-name-suggestions" required />
             </div>
             <div className="space-y-2">
               <Label>Slug</Label>
-              <Input name="slug" placeholder="t-shirts" required />
+              <Input name="slug" placeholder="t-shirts" list="subcategory-slug-suggestions" required />
             </div>
             <div className="flex flex-col gap-3 lg:justify-end">
               <label className="flex items-center gap-2 text-sm">
@@ -154,14 +212,33 @@ export default async function TelegramCategoriesPage() {
               <Button type="submit">Add sub-category</Button>
             </div>
           </form>
+          {filteredCategories.length > 0 ? (
+            <>
+              <datalist id="subcategory-name-suggestions">
+                {uniqueDisplayNames.map((name) => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
+              <datalist id="subcategory-slug-suggestions">
+                {uniqueSlugs.map((slug) => (
+                  <option key={slug} value={slug} />
+                ))}
+              </datalist>
+              <p className="mt-3 text-xs text-muted-foreground">
+                You can pick an existing sub-category name/slug from suggestions, or type a new one.
+              </p>
+            </>
+          ) : null}
         </CardContent>
       </Card>
 
       <div className="space-y-6">
-        {mains.map((main) => {
-          const subs = categories.filter((c) => c.main_category_id === main.id);
+        {mains
+          .filter((main) => !selectedMain || main.id === selectedMain.id)
+          .map((main) => {
+          const subs = filteredCategories.filter((c) => c.main_category_id === main.id);
           return (
-            <Card key={main.id}>
+            <Card key={main.id} className="rounded-2xl border-slate-200 bg-white shadow-sm">
               <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
                 <div>
                   <CardTitle className="text-lg">{main.name}</CardTitle>
@@ -200,7 +277,7 @@ export default async function TelegramCategoriesPage() {
                             </Select>
                           </div>
                           <div className="space-y-2 lg:col-span-1">
-                            <Label>Name</Label>
+                            <Label>Display name</Label>
                             <Input name="name" defaultValue={c.name} required />
                           </div>
                           <div className="space-y-2 lg:col-span-1">

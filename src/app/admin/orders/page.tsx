@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function AdminOrdersPage() {
-  redirect("/admin/telegram-products");
+  redirect("/admin/telegram-orders");
 }

@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import { ActionModal } from "@/components/admin/ActionModal";
 import { AdminPageHeader, AdminSecondaryLink } from "@/components/admin/AdminPageHeader";
 import { ConfirmFormButton } from "@/components/admin/ConfirmFormButton";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabaseAdminFetch } from "@/lib/supabaseAdmin";
+
+type ProductRow = { id: string; title: string; active: boolean };
 
 type DiscountCode = {
   id: string;
@@ -26,6 +29,23 @@ async function listCodes(): Promise<DiscountCode[]> {
   return supabaseAdminFetch<DiscountCode[]>("/rest/v1/discount_codes", {
     query: { select: "*", order: "created_at.desc" }
   });
+}
+
+async function listProducts(): Promise<ProductRow[]> {
+  return supabaseAdminFetch<ProductRow[]>("/rest/v1/products", {
+    query: { select: "id,title,active", order: "created_at.desc" }
+  });
+}
+
+async function listDiscountProductCounts(): Promise<Map<string, number>> {
+  const rows = await supabaseAdminFetch<Array<{ discount_code_id: string; product_id: string }>>(
+    "/rest/v1/discount_code_products",
+    { query: { select: "discount_code_id,product_id" } }
+  ).catch(() => [] as Array<{ discount_code_id: string; product_id: string }>);
+
+  const m = new Map<string, number>();
+  for (const r of rows) m.set(r.discount_code_id, (m.get(r.discount_code_id) ?? 0) + 1);
+  return m;
 }
 
 async function createCodeAction(formData: FormData) {
@@ -60,7 +80,7 @@ async function createCodeAction(formData: FormData) {
     throw new Error("usage_limit must be a positive number");
   }
 
-  await supabaseAdminFetch("/rest/v1/discount_codes", {
+  const created = await supabaseAdminFetch<DiscountCode[] | DiscountCode>("/rest/v1/discount_codes", {
     method: "POST",
     headers: { Prefer: "return=representation" },
     body: JSON.stringify([
@@ -75,6 +95,47 @@ async function createCodeAction(formData: FormData) {
       }
     ])
   });
+
+  const row = Array.isArray(created) ? created[0] : created;
+  const codeId = row?.id;
+  const productIds = formData
+    .getAll("product_ids")
+    .map((v) => String(v))
+    .filter(Boolean);
+
+  if (codeId && productIds.length) {
+    // Best-effort: if the join table isn't created yet, ignore.
+    await supabaseAdminFetch("/rest/v1/discount_code_products", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(productIds.map((product_id) => ({ discount_code_id: codeId, product_id })))
+    }).catch(() => {});
+  }
+
+  revalidatePath("/admin/telegram-promotions");
+}
+
+async function setCodeProductsAction(formData: FormData) {
+  "use server";
+  const codeId = String(formData.get("discount_code_id") ?? "");
+  if (!codeId) throw new Error("Missing discount_code_id");
+  const productIds = formData
+    .getAll("product_ids")
+    .map((v) => String(v))
+    .filter(Boolean);
+
+  // If table doesn't exist yet, surface a clearer error.
+  await supabaseAdminFetch(`/rest/v1/discount_code_products?discount_code_id=eq.${encodeURIComponent(codeId)}`, {
+    method: "DELETE"
+  });
+
+  if (productIds.length) {
+    await supabaseAdminFetch("/rest/v1/discount_code_products", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(productIds.map((product_id) => ({ discount_code_id: codeId, product_id })))
+    });
+  }
 
   revalidatePath("/admin/telegram-promotions");
 }
@@ -106,8 +167,25 @@ async function deleteCodeAction(formData: FormData) {
   revalidatePath("/admin/telegram-promotions");
 }
 
-export default async function TelegramPromotionsAdminPage() {
-  const codes = await listCodes();
+export default async function TelegramPromotionsAdminPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ q?: string; status?: string }>;
+}) {
+  const params = await searchParams;
+  const q = (params?.q ?? "").trim().toLowerCase();
+  const statusFilter = params?.status ?? "all";
+  const [codes, products, productCountByCodeId] = await Promise.all([
+    listCodes(),
+    listProducts(),
+    listDiscountProductCounts()
+  ]);
+  const filteredCodes = codes.filter((c) => {
+    if (statusFilter === "active" && !c.active) return false;
+    if (statusFilter === "inactive" && c.active) return false;
+    if (!q) return true;
+    return c.code.toLowerCase().includes(q);
+  });
 
   return (
     <div className="space-y-8">
@@ -119,10 +197,12 @@ export default async function TelegramPromotionsAdminPage() {
         <AdminSecondaryLink href="/admin">Dashboard</AdminSecondaryLink>
       </AdminPageHeader>
 
-      <Card>
+      <Card className="border-slate-200 bg-white/95 shadow-sm">
         <CardHeader>
           <CardTitle>New code</CardTitle>
-          <CardDescription>Codes are stored uppercase. Amount-off is in cents.</CardDescription>
+          <CardDescription>
+            Codes are stored uppercase. Amount-off is in cents. Optionally limit the code to specific products.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form action={createCodeAction} className="space-y-4">
@@ -170,6 +250,25 @@ export default async function TelegramPromotionsAdminPage() {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label>Limit to products (optional)</Label>
+              {products.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No products yet.</p>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {products.map((p) => (
+                    <label key={p.id} className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" name="product_ids" value={p.id} className="size-4 accent-primary" />
+                      {p.title} {!p.active ? "(inactive)" : ""}
+                    </label>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                If you select none, the code applies to all products.
+              </p>
+            </div>
+
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="active" defaultChecked className="size-4 accent-primary" />
               Active
@@ -180,13 +279,28 @@ export default async function TelegramPromotionsAdminPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-slate-200 bg-white/95 shadow-sm">
         <CardHeader>
           <CardTitle>All codes</CardTitle>
         </CardHeader>
         <Separator />
-        <CardContent className="p-0">
-          {codes.length === 0 ? (
+        <CardContent className="space-y-4">
+          <form className="grid gap-3 md:grid-cols-3">
+            <Input name="q" placeholder="Search code..." defaultValue={params?.q ?? ""} />
+            <select
+              name="status"
+              defaultValue={statusFilter}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <option value="all">All statuses</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+            <Button type="submit" className="md:justify-self-start">
+              Filter
+            </Button>
+          </form>
+          {filteredCodes.length === 0 ? (
             <p className="p-8 text-center text-muted-foreground">No codes yet.</p>
           ) : (
             <Table>
@@ -200,7 +314,7 @@ export default async function TelegramPromotionsAdminPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {codes.map((c) => (
+                {filteredCodes.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.code}</TableCell>
                     <TableCell>
@@ -209,6 +323,11 @@ export default async function TelegramPromotionsAdminPage() {
                         : c.amount_off_cents != null && c.amount_off_cents > 0
                           ? `$${(c.amount_off_cents / 100).toFixed(2)} off`
                           : "—"}
+                      <div className="text-xs text-muted-foreground">
+                        {productCountByCodeId.get(c.id)
+                          ? `Applies to ${productCountByCodeId.get(c.id)} product(s)`
+                          : "Applies to all products"}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {c.usage_count}
@@ -216,6 +335,23 @@ export default async function TelegramPromotionsAdminPage() {
                     </TableCell>
                     <TableCell>{c.active ? "Active" : "Inactive"}</TableCell>
                     <TableCell className="text-right">
+                      <ActionModal title={`Limit products: ${c.code}`} triggerLabel="Products">
+                        <form action={setCodeProductsAction} className="space-y-3">
+                          <input type="hidden" name="discount_code_id" value={c.id} />
+                          <p className="text-sm text-muted-foreground">
+                            Select products this code applies to. If none are selected, it applies to all products.
+                          </p>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {products.map((p) => (
+                              <label key={p.id} className="flex items-center gap-2 text-sm">
+                                <input type="checkbox" name="product_ids" value={p.id} className="size-4 accent-primary" />
+                                {p.title} {!p.active ? "(inactive)" : ""}
+                              </label>
+                            ))}
+                          </div>
+                          <Button type="submit">Save products</Button>
+                        </form>
+                      </ActionModal>
                       <form action={toggleCodeAction} className="inline">
                         <input type="hidden" name="id" value={c.id} />
                         <input type="hidden" name="active" value={String(!c.active)} />

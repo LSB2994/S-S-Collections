@@ -1,32 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useCart } from "@/context/CartContext";
-import { getBanks } from "@/lib/firestore";
-import type { Bank } from "@/types";
-import { createOrder } from "@/lib/firestore";
 
 export default function CheckoutPage() {
   const { items, totalAmount, clearCart } = useCart();
-  const [banks, setBanks] = useState<Bank[]>([]);
-  const [selectedBankId, setSelectedBankId] = useState<string>("");
   const [phone, setPhone] = useState("");
   const [telegram, setTelegram] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    getBanks().then(setBanks).catch(() => setBanks([]));
-  }, []);
-
-  useEffect(() => {
-    if (banks.length && !selectedBankId) setSelectedBankId(banks[0].id);
-  }, [banks, selectedBankId]);
-
-  const selectedBank = banks.find((b) => b.id === selectedBankId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,27 +20,40 @@ export default function CheckoutPage() {
       setError("Please enter your phone number so we can contact you.");
       return;
     }
-    if (!selectedBankId) {
-      setError("Please select a bank.");
+    const trimmedTelegram = telegram.trim();
+    const normalizedTelegram = trimmedTelegram.replace(/^@+/, "").trim();
+    if (!normalizedTelegram) {
+      setError("Please enter your Telegram username (e.g. @username) so we can match your bot account.");
       return;
     }
     setLoading(true);
     try {
-      const orderId = await createOrder({
-        items: items.map(({ product, quantity }) => ({
-          productId: product.id,
-          productName: product.name,
-          price: product.price,
-          quantity,
-        })),
-        total: totalAmount,
-        contactPhone: trimmedPhone,
-        contactTelegram: telegram.trim() || undefined,
-        bankId: selectedBankId,
-        bankName: selectedBank?.name ?? "",
+      const res = await fetch("/api/checkout/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: items.map(({ product, quantity }) => ({
+            productId: product.id,
+            productName: product.name,
+            price: product.price,
+            quantity,
+          })),
+          total: totalAmount,
+          contactPhone: trimmedPhone,
+          contactTelegram: normalizedTelegram,
+        }),
       });
+      const data = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
+      if (!res.ok) {
+        setError(data.error || `Order failed (${res.status})`);
+        return;
+      }
+      if (!data.id) {
+        setError("Order failed: no order id returned.");
+        return;
+      }
       clearCart();
-      setDone(orderId);
+      setDone(data.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to place order.");
     } finally {
@@ -95,8 +92,7 @@ export default function CheckoutPage() {
             <div className="text-5xl">✓</div>
             <h1 className="mt-4 text-xl font-semibold text-stone-800">Order received</h1>
             <p className="mt-2 text-stone-600">
-              We will contact you at your phone (and Telegram if provided) after you pay. Please
-              complete payment to the selected bank QR.
+              We will contact you on Telegram to confirm your order and payment.
             </p>
             <p className="mt-2 text-sm text-stone-500">Order # {done}</p>
             <Link
@@ -121,72 +117,27 @@ export default function CheckoutPage() {
         </div>
       </header>
       <main className="mx-auto max-w-4xl px-4 py-6">
-        <h1 className="text-xl font-semibold text-stone-800">Payment</h1>
+        <h1 className="text-xl font-semibold text-stone-800">Checkout</h1>
         <p className="mt-1 text-sm text-stone-500">
-          Choose a bank, scan the QR to pay, then leave your contact so we can confirm.
+          Enter your contact details. We will reach out to confirm your order and payment.
         </p>
 
+        <div className="mt-6 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-stone-100">
+          <p className="text-sm font-medium text-stone-700">Order total</p>
+          <p className="mt-1 text-2xl font-bold text-emerald-600">${totalAmount.toFixed(2)}</p>
+          <ul className="mt-3 space-y-1 text-sm text-stone-600">
+            {items.map(({ product, quantity }) => (
+              <li key={product.id} className="flex justify-between gap-2">
+                <span className="min-w-0 truncate">
+                  {product.name} × {quantity}
+                </span>
+                <span className="shrink-0">${(product.price * quantity).toFixed(2)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
         <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-          {/* Bank selection */}
-          <div>
-            <label className="block text-sm font-medium text-stone-700">Pay with</label>
-            <div className="mt-2 space-y-2">
-              {banks.map((bank) => (
-                <label
-                  key={bank.id}
-                  className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition ${
-                    selectedBankId === bank.id
-                      ? "border-emerald-500 bg-emerald-50"
-                      : "border-stone-200 bg-white hover:border-stone-300"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="bank"
-                    value={bank.id}
-                    checked={selectedBankId === bank.id}
-                    onChange={() => setSelectedBankId(bank.id)}
-                    className="h-4 w-4 text-emerald-600"
-                  />
-                  <span className="font-medium text-stone-800">{bank.name}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* QR for selected bank */}
-          {selectedBank && (
-            <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-stone-100">
-              <p className="text-sm font-medium text-stone-700">Scan to pay — {selectedBank.name}</p>
-              {selectedBank.accountName && (
-                <p className="text-sm text-stone-500">Account: {selectedBank.accountName}</p>
-              )}
-              {selectedBank.accountNumber && (
-                <p className="text-sm text-stone-500">{selectedBank.accountNumber}</p>
-              )}
-              <div className="mt-3 flex justify-center">
-                {selectedBank.qrImageUrl ? (
-                  <div className="relative h-48 w-48">
-                    <Image
-                      src={selectedBank.qrImageUrl}
-                      alt={`QR ${selectedBank.name}`}
-                      fill
-                      className="object-contain"
-                    />
-                  </div>
-                ) : (
-                  <div className="flex h-48 w-48 items-center justify-center rounded-lg bg-stone-100 text-stone-400">
-                    Add QR image in admin
-                  </div>
-                )}
-              </div>
-              <p className="mt-2 text-center text-lg font-bold text-emerald-600">
-                ${totalAmount.toFixed(2)}
-              </p>
-            </div>
-          )}
-
-          {/* Contact */}
           <div className="space-y-3">
             <label htmlFor="phone" className="block text-sm font-medium text-stone-700">
               Phone number <span className="text-red-500">*</span>
@@ -201,7 +152,7 @@ export default function CheckoutPage() {
               required
             />
             <label htmlFor="telegram" className="block text-sm font-medium text-stone-700">
-              Telegram (optional)
+              Telegram username <span className="text-red-500">*</span>
             </label>
             <input
               id="telegram"
@@ -210,6 +161,7 @@ export default function CheckoutPage() {
               onChange={(e) => setTelegram(e.target.value)}
               placeholder="@username"
               className="w-full rounded-xl border border-stone-200 px-4 py-3 text-stone-800 placeholder:text-stone-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              required
             />
           </div>
 

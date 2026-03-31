@@ -9,12 +9,15 @@ A simple e-commerce flow: **customers shop without signing up**; **admins** mana
 
 - **Next.js 16** (App Router) + **TypeScript** + **Tailwind**
 - **Firebase**: Firestore + Auth (admin only)
+- **Telegram bot (optional)**: Telegraf runs inside Next.js via **webhooks**
+- **Stripe (optional)**: Checkout + webhook for Telegram “Pay” links
 
 ## Setup
 
 **→ For detailed Firebase steps (project, auth, Firestore, env, rules), see [FIREBASE_SETUP.md](./FIREBASE_SETUP.md).**
 
 1. **Clone and install**
+
    ```bash
    cd shop
    npm install
@@ -34,11 +37,41 @@ A simple e-commerce flow: **customers shop without signing up**; **admins** mana
    - In Firebase Console → Authentication → Users, add a user with email/password. Use this to sign in at `/admin/login`.
 
 5. **Run**
+
    ```bash
    npm run dev
    ```
+
    - Shop: [http://localhost:3000](http://localhost:3000)
    - Admin: [http://localhost:3000/admin](http://localhost:3000/admin)
+
+## Telegram bot (Next.js-only webhook mode)
+
+The Telegram bot is implemented **inside Next.js** (no separate service/process).
+
+### Env vars
+
+Add these to your `.env.local` (see `.env.example`):
+
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_WEBHOOK_SECRET`
+- `PUBLIC_BASE_URL` (your public HTTPS URL in production)
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- Optional Stripe: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
+- Optional webhook setup helper: `TELEGRAM_WEBHOOK_SETUP_SECRET`
+
+### Set the webhook
+
+After deploying (or when using a tunnel locally), call:
+
+```bash
+curl -X POST "https://<your-domain>/api/telegram/set-webhook" ^
+  -H "Authorization: Bearer <TELEGRAM_WEBHOOK_SETUP_SECRET>"
+```
+
+Telegram will then send updates to:
+`/api/telegram/webhook?secret=<TELEGRAM_WEBHOOK_SECRET>`
 
 ## Usage
 
