@@ -18,8 +18,8 @@ export const metadata: Metadata = {
   description: "Browse and buy. No account needed.",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: [{ url: "/logo.png" }],
-    apple: [{ url: "/logo.png" }],
+    icon: [{ url: "/next.svg" }],
+    apple: [{ url: "/next.svg" }],
   },
 };
 
