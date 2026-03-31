@@ -80,19 +80,20 @@ function inferColors(title: string, description: string | null): string[] {
 }
 
 export async function GET() {
-  const products = await supabaseAdminFetch<DbProduct[]>("/rest/v1/products", {
-    query: {
-      select: "*",
-      active: "eq.true",
-      order: "created_at.desc"
-    }
-  });
+  try {
+    const products = await supabaseAdminFetch<DbProduct[]>("/rest/v1/products", {
+      query: {
+        select: "*",
+        active: "eq.true",
+        order: "created_at.desc"
+      }
+    });
 
-  const productCategories = await supabaseAdminFetch<DbProductCategory[]>("/rest/v1/product_categories", {
-    query: {
-      select: "product_id,categories(name,slug,main_categories(name,slug))"
-    }
-  });
+    const productCategories = await supabaseAdminFetch<DbProductCategory[]>("/rest/v1/product_categories", {
+      query: {
+        select: "product_id,categories(name,slug,main_categories(name,slug))"
+      }
+    });
   const sectionByProductId = new Map<string, Set<string>>();
   for (const row of productCategories) {
     const current = sectionByProductId.get(row.product_id) ?? new Set<string>();
@@ -151,13 +152,23 @@ export async function GET() {
     })
   );
 
-  const storeProducts = enriched.filter(Boolean) as StoreProduct[];
-  const facets = {
-    sections: Array.from(new Set(storeProducts.flatMap((p) => p.sections))).sort((a, b) => a.localeCompare(b)),
-    sizes: Array.from(new Set(storeProducts.flatMap((p) => p.sizes))).sort((a, b) => a.localeCompare(b)),
-    colors: Array.from(new Set(storeProducts.flatMap((p) => p.colors))).sort((a, b) => a.localeCompare(b))
-  };
+    const storeProducts = enriched.filter(Boolean) as StoreProduct[];
+    const facets = {
+      sections: Array.from(new Set(storeProducts.flatMap((p) => p.sections))).sort((a, b) => a.localeCompare(b)),
+      sizes: Array.from(new Set(storeProducts.flatMap((p) => p.sizes))).sort((a, b) => a.localeCompare(b)),
+      colors: Array.from(new Set(storeProducts.flatMap((p) => p.colors))).sort((a, b) => a.localeCompare(b))
+    };
 
-  return Response.json({ products: storeProducts, facets });
+    return Response.json({ products: storeProducts, facets });
+  } catch (e: any) {
+    return Response.json(
+      {
+        ok: false,
+        error: String(e?.message ?? e ?? "Unknown error"),
+        hint: "Check Vercel env vars: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY"
+      },
+      { status: 500 }
+    );
+  }
 }
 
