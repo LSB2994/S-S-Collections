@@ -396,6 +396,6 @@ export async function setOrderStripeSession(orderId: string, sessionId: string) 
 export async function listAllUserTelegramIds() {
   const { data, error } = await supabase().from("users").select("telegram_user_id");
   if (error) throw error;
-  return (data ?? []).map((u) => u.telegram_user_id as number);
+  return (data ?? []).map((u: { telegram_user_id: number | null }) => u.telegram_user_id).filter((id): id is number => typeof id === "number");
 }
 
