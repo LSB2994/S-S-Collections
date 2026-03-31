@@ -10,7 +10,7 @@ export default function Home() {
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
           <Link href="/" className="flex items-center gap-2">
             <Image
-              src="/next.svg"
+              src="/logo.png"
               alt="S&S Collections"
               width={32}
               height={32}
