@@ -149,6 +149,71 @@ function statusBadgeClass(status: OrderStatus) {
   }
 }
 
+function OrderDetailModal({
+  o,
+  items,
+  updateAction
+}: {
+  o: OrderRow;
+  items: OrderItemRow[];
+  updateAction: (formData: FormData) => Promise<void>;
+}) {
+  return (
+    <ActionModal title={`Order ${o.id.slice(0, 8)} details`} triggerLabel="View detail">
+      <div className="space-y-5">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Delivery</p>
+            <p className="mt-1 text-sm font-medium text-slate-900">{o.delivery_name ?? "—"}</p>
+            <p className="text-sm text-slate-700">{o.delivery_phone ?? "—"}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{o.delivery_address ?? "—"}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Amounts</p>
+            <p className="mt-1 text-sm">Subtotal: {formatUsdFromCents(o.subtotal_cents, o.currency)}</p>
+            <p className="text-sm">Discount: {formatUsdFromCents(o.discount_cents, o.currency)}</p>
+            <p className="text-base font-semibold text-slate-900">Total: {formatUsdFromCents(o.total_cents, o.currency)}</p>
+          </div>
+        </div>
+
+        <div className="space-y-2 rounded-xl border border-slate-200 overflow-hidden">
+          {items.map((item) => {
+            const variant = toVariant(item.product_variants);
+            const title = toProductTitle(variant?.products ?? null);
+            return (
+              <div key={item.id} className="flex items-center justify-between gap-3 px-3 py-2 odd:bg-slate-50">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{title}</p>
+                  <p className="text-xs text-muted-foreground">Size: {variant?.size ?? "—"} · Qty: {item.qty}</p>
+                </div>
+                <span className="text-sm font-semibold tabular-nums shrink-0">
+                  {formatUsdFromCents(item.line_total_cents, o.currency)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        <form
+          action={updateAction}
+          className="flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3"
+        >
+          <input type="hidden" name="id" value={o.id} />
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Update status</p>
+            <NativeSelect name="status" defaultValue={o.status}>
+              {ORDER_STATUSES.map((status) => (
+                <option key={status} value={status}>{status}</option>
+              ))}
+            </NativeSelect>
+          </div>
+          <Button type="submit" variant="secondary">Save status</Button>
+        </form>
+      </div>
+    </ActionModal>
+  );
+}
+
 export default async function TelegramOrdersPage({
   searchParams
 }: {
@@ -262,18 +327,62 @@ export default async function TelegramOrdersPage({
           {filteredOrders.length === 0 ? (
             <p className="p-8 text-center text-muted-foreground">No orders yet.</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Order</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Payment</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Desktop table */}
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Order</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Payment</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredOrders.map((o) => {
+                      const user = toUser(o.users);
+                      const name =
+                        [user?.first_name, user?.last_name].filter(Boolean).join(" ").trim() ||
+                        o.delivery_name ||
+                        "Unknown";
+                      return (
+                        <TableRow key={o.id}>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{o.id.slice(0, 8)}…</p>
+                              <p className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString()}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <p>{name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {user?.telegram_username ? `@${user.telegram_username}` : user?.phone ?? o.delivery_phone ?? "—"}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell>{o.payment_method.toUpperCase()}</TableCell>
+                          <TableCell>{formatUsdFromCents(o.total_cents, o.currency)}</TableCell>
+                          <TableCell>
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusBadgeClass(o.status)}`}>
+                              {o.status}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <OrderDetailModal o={o} items={itemsByOrderId.get(o.id) ?? []} updateAction={updateOrderStatusAction} />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile list */}
+              <div className="sm:hidden space-y-3">
                 {filteredOrders.map((o) => {
                   const user = toUser(o.users);
                   const name =
@@ -281,110 +390,27 @@ export default async function TelegramOrdersPage({
                     o.delivery_name ||
                     "Unknown";
                   return (
-                    <TableRow key={o.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{o.id.slice(0, 8)}…</p>
+                    <div key={o.id} className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-900 truncate">{name}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{o.id.slice(0, 8)}…</p>
                           <p className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString()}</p>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p>{name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {user?.telegram_username ? `@${user.telegram_username}` : user?.phone ?? o.delivery_phone ?? "—"}
-                          </p>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadgeClass(o.status)}`}>
+                            {o.status}
+                          </span>
+                          <span className="text-sm font-semibold tabular-nums">{formatUsdFromCents(o.total_cents, o.currency)}</span>
+                          <span className="text-xs text-muted-foreground">{o.payment_method.toUpperCase()}</span>
                         </div>
-                      </TableCell>
-                      <TableCell>{o.payment_method.toUpperCase()}</TableCell>
-                      <TableCell>{formatUsdFromCents(o.total_cents, o.currency)}</TableCell>
-                      <TableCell>
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusBadgeClass(o.status)}`}>
-                          {o.status}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <ActionModal title={`Order ${o.id.slice(0, 8)} details`} triggerLabel="View detail">
-                          <div className="space-y-5">
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-                                <p className="text-xs uppercase tracking-wide text-muted-foreground">Delivery</p>
-                                <p className="mt-1 text-sm font-medium text-slate-900">{o.delivery_name ?? "—"}</p>
-                                <p className="text-sm text-slate-700">{o.delivery_phone ?? "—"}</p>
-                                <p className="mt-1 text-sm text-muted-foreground">{o.delivery_address ?? "—"}</p>
-                              </div>
-                              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-                                <p className="text-xs uppercase tracking-wide text-muted-foreground">Amounts</p>
-                                <p className="mt-1 text-sm">Subtotal: {formatUsdFromCents(o.subtotal_cents, o.currency)}</p>
-                                <p className="text-sm">Discount: {formatUsdFromCents(o.discount_cents, o.currency)}</p>
-                                <p className="text-base font-semibold text-slate-900">
-                                  Total: {formatUsdFromCents(o.total_cents, o.currency)}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="overflow-x-auto rounded-xl border border-slate-200">
-                              <Table className="table-fixed">
-                                <colgroup>
-                                  <col className="w-[58%]" />
-                                  <col className="w-[14%]" />
-                                  <col className="w-[12%]" />
-                                  <col className="w-[16%]" />
-                                </colgroup>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead className="text-left">Item</TableHead>
-                                    <TableHead className="text-center">Size</TableHead>
-                                    <TableHead className="text-center">Qty</TableHead>
-                                    <TableHead className="text-right">Line total</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {(itemsByOrderId.get(o.id) ?? []).map((item) => {
-                                    const variant = toVariant(item.product_variants);
-                                    const title = toProductTitle(variant?.products ?? null);
-                                    return (
-                                      <TableRow key={item.id} className="hover:bg-transparent">
-                                        <TableCell className="pl-3 text-left font-medium">{title}</TableCell>
-                                        <TableCell className="text-center">{variant?.size ?? "—"}</TableCell>
-                                        <TableCell className="text-center">{item.qty}</TableCell>
-                                        <TableCell className="text-right font-semibold">
-                                          {formatUsdFromCents(item.line_total_cents, o.currency)}
-                                        </TableCell>
-                                      </TableRow>
-                                    );
-                                  })}
-                                </TableBody>
-                              </Table>
-                            </div>
-
-                            <form
-                              action={updateOrderStatusAction}
-                              className="flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3"
-                            >
-                              <input type="hidden" name="id" value={o.id} />
-                              <div className="space-y-1">
-                                <p className="text-xs uppercase tracking-wide text-muted-foreground">Update status</p>
-                                <NativeSelect name="status" defaultValue={o.status}>
-                                  {ORDER_STATUSES.map((status) => (
-                                    <option key={status} value={status}>
-                                      {status}
-                                    </option>
-                                  ))}
-                                </NativeSelect>
-                              </div>
-                              <Button type="submit" variant="secondary">
-                                Save status
-                              </Button>
-                            </form>
-                          </div>
-                        </ActionModal>
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                      <OrderDetailModal o={o} items={itemsByOrderId.get(o.id) ?? []} updateAction={updateOrderStatusAction} />
+                    </div>
                   );
                 })}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

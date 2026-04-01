@@ -72,6 +72,44 @@ function Avatar({ u }: { u: UserRow }) {
   );
 }
 
+function UserDetailModal({ u, a }: { u: UserRow; a: OrderAgg | undefined }) {
+  return (
+    <ActionModal title={displayName(u)} triggerSize="icon" triggerVariant="ghost" triggerClassName="h-8 w-8" trigger={<><MoreHorizontal className="h-4 w-4" /><span className="sr-only">Actions</span></>}>
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <Avatar u={u} />
+          <div>
+            <p className="font-semibold text-slate-900">{displayName(u)}</p>
+            <p className="text-xs text-muted-foreground">Joined {new Date(u.created_at).toLocaleDateString()}</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Contact</p>
+            <p className="text-sm text-slate-700">{u.phone ?? <span className="text-muted-foreground">No phone</span>}</p>
+            <p className="text-sm text-slate-700">
+              {u.telegram_username ? `@${u.telegram_username}` : <span className="text-muted-foreground">No username</span>}
+            </p>
+            <p className="text-xs text-muted-foreground tabular-nums">ID: {u.telegram_user_id}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Stats</p>
+            <p className="text-sm text-slate-700">{a?.count ?? 0} orders</p>
+            <p className="text-sm font-semibold text-slate-900">
+              {formatUsdFromCents(a?.revenue_cents ?? 0, a?.currency ?? "usd")}
+            </p>
+          </div>
+        </div>
+        <Button asChild variant="secondary" size="sm" className="gap-1.5">
+          <a href={`/admin/telegram-orders?q=${encodeURIComponent(String(u.telegram_user_id))}`}>
+            View orders <ArrowRight className="h-3.5 w-3.5" />
+          </a>
+        </Button>
+      </div>
+    </ActionModal>
+  );
+}
+
 export default async function TelegramUsersPage({
   searchParams
 }: {
@@ -152,100 +190,90 @@ export default async function TelegramUsersPage({
             <Button type="submit" variant="secondary" className="gap-1.5"><SlidersHorizontal className="h-3.5 w-3.5" />Filter</Button>
           </form>
 
-          {/* Table */}
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/40 hover:bg-muted/40">
-                <TableHead>User</TableHead>
-                <TableHead>Telegram</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead className="w-20 text-center">Orders</TableHead>
-                <TableHead className="w-28 text-right">Revenue</TableHead>
-                <TableHead className="w-12" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                    No users match your filter.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filtered.map((u) => {
+          {filtered.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">No users match your filter.</p>
+          ) : (
+            <>
+              {/* Desktop table */}
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+                      <TableHead>User</TableHead>
+                      <TableHead>Telegram</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead className="w-20 text-center">Orders</TableHead>
+                      <TableHead className="w-28 text-right">Revenue</TableHead>
+                      <TableHead className="w-12" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((u) => {
+                      const a = aggByUserId.get(u.id);
+                      return (
+                        <TableRow key={u.id} className="align-middle">
+                          <TableCell>
+                            <div className="flex items-center gap-2.5">
+                              <Avatar u={u} />
+                              <span className="font-medium text-slate-900">{displayName(u)}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-sm text-slate-700">
+                              {u.telegram_username ? `@${u.telegram_username}` : "—"}
+                            </span>
+                            <div className="text-xs text-muted-foreground tabular-nums">{u.telegram_user_id}</div>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {u.phone ? <span className="font-mono text-xs">{u.phone}</span> : <span className="text-muted-foreground">—</span>}
+                          </TableCell>
+                          <TableCell className="text-center tabular-nums">{a?.count ?? 0}</TableCell>
+                          <TableCell className="text-right font-medium tabular-nums">
+                            {formatUsdFromCents(a?.revenue_cents ?? 0, a?.currency ?? "usd")}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex justify-end">
+                              <UserDetailModal u={u} a={aggByUserId.get(u.id)} />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile list */}
+              <div className="sm:hidden space-y-3">
+                {filtered.map((u) => {
                   const a = aggByUserId.get(u.id);
                   return (
-                    <TableRow key={u.id} className="align-middle">
-                      <TableCell>
-                        <div className="flex items-center gap-2.5">
+                    <div key={u.id} className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
                           <Avatar u={u} />
-                          <span className="font-medium text-slate-900">{displayName(u)}</span>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-slate-900 truncate">{displayName(u)}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {u.telegram_username ? `@${u.telegram_username}` : String(u.telegram_user_id)}
+                            </p>
+                          </div>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-slate-700">
-                          {u.telegram_username ? `@${u.telegram_username}` : "—"}
+                        <UserDetailModal u={u} a={a} />
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        {u.phone && <span className="font-mono">{u.phone}</span>}
+                        <span>{a?.count ?? 0} orders</span>
+                        <span className="font-medium text-slate-800">
+                          {formatUsdFromCents(a?.revenue_cents ?? 0, a?.currency ?? "usd")}
                         </span>
-                        <div className="text-xs text-muted-foreground tabular-nums">{u.telegram_user_id}</div>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {u.phone
-                          ? <span className="font-mono text-xs">{u.phone}</span>
-                          : <span className="text-muted-foreground">—</span>}
-                      </TableCell>
-                      <TableCell className="text-center tabular-nums">
-                        {a?.count ?? 0}
-                      </TableCell>
-                      <TableCell className="text-right font-medium tabular-nums">
-                        {formatUsdFromCents(a?.revenue_cents ?? 0, a?.currency ?? "usd")}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex justify-end">
-                          <ActionModal title={`${displayName(u)}`} triggerSize="icon" triggerVariant="ghost" triggerClassName="h-8 w-8" trigger={<><MoreHorizontal className="h-4 w-4" /><span className="sr-only">Actions</span></>}>
-                            <div className="space-y-4">
-                              <div className="flex items-center gap-3">
-                                <Avatar u={u} />
-                                <div>
-                                  <p className="font-semibold text-slate-900">{displayName(u)}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    Joined {new Date(u.created_at).toLocaleDateString()}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-3">
-                                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1">
-                                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Contact</p>
-                                  <p className="text-sm text-slate-700">{u.phone ?? <span className="text-muted-foreground">No phone</span>}</p>
-                                  <p className="text-sm text-slate-700">
-                                    {u.telegram_username ? `@${u.telegram_username}` : <span className="text-muted-foreground">No username</span>}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground tabular-nums">ID: {u.telegram_user_id}</p>
-                                </div>
-                                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1">
-                                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Stats</p>
-                                  <p className="text-sm text-slate-700">{a?.count ?? 0} orders</p>
-                                  <p className="text-sm font-semibold text-slate-900">
-                                    {formatUsdFromCents(a?.revenue_cents ?? 0, a?.currency ?? "usd")}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <Button asChild variant="secondary" size="sm" className="gap-1.5">
-                                <a href={`/admin/telegram-orders?q=${encodeURIComponent(String(u.telegram_user_id))}`}>
-                                  View orders <ArrowRight className="h-3.5 w-3.5" />
-                                </a>
-                              </Button>
-                            </div>
-                          </ActionModal>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                    </div>
                   );
-                })
-              )}
-            </TableBody>
-          </Table>
+                })}
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

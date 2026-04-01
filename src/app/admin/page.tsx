@@ -104,39 +104,67 @@ export default async function AdminDashboardPage() {
           {recentOrders.length === 0 ? (
             <CardContent className="py-10 text-center text-sm text-muted-foreground">No orders yet.</CardContent>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead>Order</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead className="text-right w-28">Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Desktop table */}
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+                      <TableHead>Order</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-right w-28">Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentOrders.map((o) => {
+                      const cfg = STATUS_CONFIG[o.status] ?? { label: o.status, pill: "bg-slate-100 text-slate-500" };
+                      return (
+                        <TableRow key={o.id}>
+                          <TableCell className="font-mono text-xs text-muted-foreground">{o.id.slice(0, 8)}…</TableCell>
+                          <TableCell className="font-medium">{o.delivery_name || "—"}</TableCell>
+                          <TableCell>
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${cfg.pill}`}>
+                              {cfg.label}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right font-medium tabular-nums">
+                            {formatUsdFromCents(o.total_cents, o.currency)}
+                          </TableCell>
+                          <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
+                            {new Date(o.created_at).toLocaleDateString()}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile list */}
+              <div className="sm:hidden divide-y">
                 {recentOrders.map((o) => {
                   const cfg = STATUS_CONFIG[o.status] ?? { label: o.status, pill: "bg-slate-100 text-slate-500" };
                   return (
-                    <TableRow key={o.id}>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{o.id.slice(0, 8)}…</TableCell>
-                      <TableCell className="font-medium">{o.delivery_name || "—"}</TableCell>
-                      <TableCell>
+                    <div key={o.id} className="flex items-center justify-between gap-3 py-3 px-4">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-900 truncate">{o.delivery_name || "—"}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{o.id.slice(0, 8)}… · {new Date(o.created_at).toLocaleDateString()}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${cfg.pill}`}>
                           {cfg.label}
                         </span>
-                      </TableCell>
-                      <TableCell className="text-right font-medium tabular-nums">
-                        {formatUsdFromCents(o.total_cents, o.currency)}
-                      </TableCell>
-                      <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
-                        {new Date(o.created_at).toLocaleDateString()}
-                      </TableCell>
-                    </TableRow>
+                        <span className="text-sm font-semibold tabular-nums text-slate-900">
+                          {formatUsdFromCents(o.total_cents, o.currency)}
+                        </span>
+                      </div>
+                    </div>
                   );
                 })}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </Card>
 

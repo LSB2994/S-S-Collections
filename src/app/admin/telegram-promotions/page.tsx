@@ -227,63 +227,82 @@ export default async function TelegramPromotionsAdminPage({
           {filteredCodes.length === 0 ? (
             <p className="py-10 text-center text-sm text-muted-foreground">No codes found.</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead>Code</TableHead>
-                  <TableHead>Value</TableHead>
-                  <TableHead className="w-20 text-center">Usage</TableHead>
-                  <TableHead className="w-24">Status</TableHead>
-                  <TableHead className="w-12" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Desktop table */}
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+                      <TableHead>Code</TableHead>
+                      <TableHead>Value</TableHead>
+                      <TableHead className="w-20 text-center">Usage</TableHead>
+                      <TableHead className="w-24">Status</TableHead>
+                      <TableHead className="w-12" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCodes.map((c) => (
+                      <TableRow key={c.id}>
+                        <TableCell className="font-mono font-semibold tracking-wide">{c.code}</TableCell>
+                        <TableCell>
+                          <span className="font-medium">
+                            {c.percent_off != null && c.percent_off > 0
+                              ? `${c.percent_off}% off`
+                              : c.amount_off_cents != null && c.amount_off_cents > 0
+                                ? `$${(c.amount_off_cents / 100).toFixed(2)} off`
+                                : "—"}
+                          </span>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {productCountByCodeId.get(c.id) ? `${productCountByCodeId.get(c.id)} product(s)` : "All products"}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center tabular-nums">
+                          {c.usage_count}
+                          {c.usage_limit != null && <span className="text-muted-foreground">/{c.usage_limit}</span>}
+                        </TableCell>
+                        <TableCell>
+                          <span className={["inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", c.active ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"].join(" ")}>
+                            {c.active ? "Active" : "Inactive"}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <CodeActionsMenu codeId={c.id} codeName={c.code} isActive={c.active} products={products} toggleAction={toggleCodeAction} deleteAction={deleteCodeAction} setProductsAction={setCodeProductsAction} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile list */}
+              <div className="sm:hidden space-y-3">
                 {filteredCodes.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-mono font-semibold tracking-wide">{c.code}</TableCell>
-                    <TableCell>
-                      <span className="font-medium">
-                        {c.percent_off != null && c.percent_off > 0
-                          ? `${c.percent_off}% off`
-                          : c.amount_off_cents != null && c.amount_off_cents > 0
-                            ? `$${(c.amount_off_cents / 100).toFixed(2)} off`
-                            : "—"}
-                      </span>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {productCountByCodeId.get(c.id)
-                          ? `${productCountByCodeId.get(c.id)} product(s)`
-                          : "All products"}
+                  <div key={c.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-mono font-semibold tracking-wide text-slate-900">{c.code}</p>
+                        <p className="text-sm text-slate-700 mt-0.5">
+                          {c.percent_off != null && c.percent_off > 0
+                            ? `${c.percent_off}% off`
+                            : c.amount_off_cents != null && c.amount_off_cents > 0
+                              ? `$${(c.amount_off_cents / 100).toFixed(2)} off`
+                              : "—"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {productCountByCodeId.get(c.id) ? `${productCountByCodeId.get(c.id)} product(s)` : "All products"} · Used {c.usage_count}{c.usage_limit != null ? `/${c.usage_limit}` : ""}x
+                        </p>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-center tabular-nums">
-                      {c.usage_count}
-                      {c.usage_limit != null && (
-                        <span className="text-muted-foreground">/{c.usage_limit}</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className={[
-                        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                        c.active ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
-                      ].join(" ")}>
-                        {c.active ? "Active" : "Inactive"}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <CodeActionsMenu
-                        codeId={c.id}
-                        codeName={c.code}
-                        isActive={c.active}
-                        products={products}
-                        toggleAction={toggleCodeAction}
-                        deleteAction={deleteCodeAction}
-                        setProductsAction={setCodeProductsAction}
-                      />
-                    </TableCell>
-                  </TableRow>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={["inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", c.active ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"].join(" ")}>
+                          {c.active ? "Active" : "Inactive"}
+                        </span>
+                        <CodeActionsMenu codeId={c.id} codeName={c.code} isActive={c.active} products={products} toggleAction={toggleCodeAction} deleteAction={deleteCodeAction} setProductsAction={setCodeProductsAction} />
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
