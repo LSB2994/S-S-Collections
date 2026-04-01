@@ -172,7 +172,9 @@ async function sendCategories(ctx: BotContext) {
     return;
   }
 
-  const buttons = mains.map((m) => [Markup.button.callback(`🧭 ${m.name}`, CB.mainPick(m.id))]);
+  const buttons: ReturnType<typeof Markup.button.callback | typeof Markup.button.url>[][] = mains.map((m) => [
+    Markup.button.callback(`🧭 ${m.name}`, CB.mainPick(m.id))
+  ]);
   buttons.push([Markup.button.callback("✨ All products", CB.catalogPage(0))]);
   buttons.push([Markup.button.url("🌐 Visit Website", "https://s-s-collections.vercel.app/")]);
   await ctx.reply("Pick a section:", Markup.inlineKeyboard(buttons));
