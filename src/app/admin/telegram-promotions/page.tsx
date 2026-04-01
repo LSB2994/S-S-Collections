@@ -1,13 +1,13 @@
 import { revalidatePath } from "next/cache";
-import { ActionModal } from "@/components/admin/ActionModal";
 import { AdminPageHeader, AdminSecondaryLink } from "@/components/admin/AdminPageHeader";
-import { ConfirmFormButton } from "@/components/admin/ConfirmFormButton";
+import { CodeActionsMenu } from "@/components/admin/CodeActionsMenu";
+import { NewCodeModal } from "@/components/admin/NewCodeModal";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SlidersHorizontal } from "lucide-react";
 import { supabaseAdminFetch } from "@/lib/supabaseAdmin";
 
 type ProductRow = { id: string; title: string; active: boolean };
@@ -104,7 +104,6 @@ async function createCodeAction(formData: FormData) {
     .filter(Boolean);
 
   if (codeId && productIds.length) {
-    // Best-effort: if the join table isn't created yet, ignore.
     await supabaseAdminFetch("/rest/v1/discount_code_products", {
       method: "POST",
       headers: { Prefer: "return=representation" },
@@ -124,7 +123,6 @@ async function setCodeProductsAction(formData: FormData) {
     .map((v) => String(v))
     .filter(Boolean);
 
-  // If table doesn't exist yet, surface a clearer error.
   await supabaseAdminFetch(`/rest/v1/discount_code_products?discount_code_id=eq.${encodeURIComponent(codeId)}`, {
     method: "DELETE"
   });
@@ -188,188 +186,99 @@ export default async function TelegramPromotionsAdminPage({
   });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <AdminPageHeader
         title="Discount codes"
-        description="Create promotion codes (percent or fixed amount off). Your bot must apply these at checkout — this page only maintains the codes in Supabase."
+        description="Create promotion codes (percent or fixed amount off). Your bot applies these at checkout — this page maintains the codes in Supabase."
       >
         <AdminSecondaryLink href="/admin/telegram-products">Products</AdminSecondaryLink>
         <AdminSecondaryLink href="/admin">Dashboard</AdminSecondaryLink>
       </AdminPageHeader>
 
-      <Card className="border-slate-200 bg-white/95 shadow-sm">
-        <CardHeader>
-          <CardTitle>New code</CardTitle>
-          <CardDescription>
-            Codes are stored uppercase. Amount-off is in cents. Optionally limit the code to specific products.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form action={createCodeAction} className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Code</Label>
-                <Input name="code" placeholder="SPRING10" required />
-              </div>
-              <div className="space-y-2">
-                <Label>Usage limit (optional)</Label>
-                <Input name="usage_limit" type="number" min={1} />
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="space-y-2">
-                <Label>Type</Label>
-                <select
-                  name="mode"
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  defaultValue="percent"
-                >
-                  <option value="percent">Percent off</option>
-                  <option value="amount">Amount off (cents)</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label>Percent off</Label>
-                <Input name="percent_off" type="number" min={1} max={100} defaultValue={10} />
-              </div>
-              <div className="space-y-2">
-                <Label>Amount off (cents)</Label>
-                <Input name="amount_off_cents" type="number" min={0} defaultValue={0} />
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Starts at (optional)</Label>
-                <Input name="starts_at" placeholder="ISO date, e.g. 2026-03-26T00:00:00Z" />
-              </div>
-              <div className="space-y-2">
-                <Label>Ends at (optional)</Label>
-                <Input name="ends_at" placeholder="ISO date" />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Limit to products (optional)</Label>
-              {products.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No products yet.</p>
-              ) : (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {products.map((p) => (
-                    <label key={p.id} className="flex items-center gap-2 text-sm">
-                      <input type="checkbox" name="product_ids" value={p.id} className="size-4 accent-primary" />
-                      {p.title} {!p.active ? "(inactive)" : ""}
-                    </label>
-                  ))}
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">
-                If you select none, the code applies to all products.
-              </p>
-            </div>
-
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="active" defaultChecked className="size-4 accent-primary" />
-              Active
-            </label>
-
-            <Button type="submit">Create code</Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card className="border-slate-200 bg-white/95 shadow-sm">
-        <CardHeader>
-          <CardTitle>All codes</CardTitle>
+      {/* All codes */}
+      <Card className="rounded-2xl border-slate-200 bg-white shadow-sm">
+        <CardHeader className="pb-4 flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-base">
+            All codes
+            <span className="ml-2 text-sm font-normal text-muted-foreground">({codes.length})</span>
+          </CardTitle>
+          <NewCodeModal products={products} createAction={createCodeAction} />
         </CardHeader>
         <Separator />
-        <CardContent className="space-y-4">
-          <form className="grid gap-3 md:grid-cols-3">
-            <Input name="q" placeholder="Search code..." defaultValue={params?.q ?? ""} />
-            <select
-              name="status"
-              defaultValue={statusFilter}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            >
-              <option value="all">All statuses</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-            <Button type="submit" className="md:justify-self-start">
-              Filter
-            </Button>
+        <CardContent className="pt-4 space-y-4">
+          <form className="flex flex-wrap gap-3 items-end">
+            <div className="flex-1 min-w-48">
+              <Input name="q" placeholder="Search code…" defaultValue={params?.q ?? ""} />
+            </div>
+            <div className="w-44">
+              <select
+                name="status"
+                defaultValue={statusFilter}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="all">All statuses</option>
+                <option value="active">Active only</option>
+                <option value="inactive">Inactive only</option>
+              </select>
+            </div>
+            <Button type="submit" variant="secondary" className="gap-1.5"><SlidersHorizontal className="h-3.5 w-3.5" />Filter</Button>
           </form>
+
           {filteredCodes.length === 0 ? (
-            <p className="p-8 text-center text-muted-foreground">No codes yet.</p>
+            <p className="py-10 text-center text-sm text-muted-foreground">No codes found.</p>
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
                   <TableHead>Code</TableHead>
                   <TableHead>Value</TableHead>
-                  <TableHead>Usage</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="w-20 text-center">Usage</TableHead>
+                  <TableHead className="w-24">Status</TableHead>
+                  <TableHead className="w-12" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredCodes.map((c) => (
                   <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.code}</TableCell>
+                    <TableCell className="font-mono font-semibold tracking-wide">{c.code}</TableCell>
                     <TableCell>
-                      {c.percent_off != null && c.percent_off > 0
-                        ? `${c.percent_off}%`
-                        : c.amount_off_cents != null && c.amount_off_cents > 0
-                          ? `$${(c.amount_off_cents / 100).toFixed(2)} off`
-                          : "—"}
-                      <div className="text-xs text-muted-foreground">
+                      <span className="font-medium">
+                        {c.percent_off != null && c.percent_off > 0
+                          ? `${c.percent_off}% off`
+                          : c.amount_off_cents != null && c.amount_off_cents > 0
+                            ? `$${(c.amount_off_cents / 100).toFixed(2)} off`
+                            : "—"}
+                      </span>
+                      <div className="text-xs text-muted-foreground mt-0.5">
                         {productCountByCodeId.get(c.id)
-                          ? `Applies to ${productCountByCodeId.get(c.id)} product(s)`
-                          : "Applies to all products"}
+                          ? `${productCountByCodeId.get(c.id)} product(s)`
+                          : "All products"}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center tabular-nums">
                       {c.usage_count}
-                      {c.usage_limit != null ? ` / ${c.usage_limit}` : ""}
+                      {c.usage_limit != null && (
+                        <span className="text-muted-foreground">/{c.usage_limit}</span>
+                      )}
                     </TableCell>
-                    <TableCell>{c.active ? "Active" : "Inactive"}</TableCell>
-                    <TableCell className="text-right">
-                      <ActionModal title={`Limit products: ${c.code}`} triggerLabel="Products">
-                        <form action={setCodeProductsAction} className="space-y-3">
-                          <input type="hidden" name="discount_code_id" value={c.id} />
-                          <p className="text-sm text-muted-foreground">
-                            Select products this code applies to. If none are selected, it applies to all products.
-                          </p>
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            {products.map((p) => (
-                              <label key={p.id} className="flex items-center gap-2 text-sm">
-                                <input type="checkbox" name="product_ids" value={p.id} className="size-4 accent-primary" />
-                                {p.title} {!p.active ? "(inactive)" : ""}
-                              </label>
-                            ))}
-                          </div>
-                          <Button type="submit">Save products</Button>
-                        </form>
-                      </ActionModal>
-                      <form action={toggleCodeAction} className="inline">
-                        <input type="hidden" name="id" value={c.id} />
-                        <input type="hidden" name="active" value={String(!c.active)} />
-                        <Button type="submit" variant="link" size="sm" className="h-auto px-2">
-                          {c.active ? "Deactivate" : "Activate"}
-                        </Button>
-                      </form>
-                      <form action={deleteCodeAction} className="ml-2 inline">
-                        <input type="hidden" name="id" value={c.id} />
-                        <ConfirmFormButton
-                          message={`Delete discount code ${c.code}?`}
-                          variant="link"
-                          size="sm"
-                          className="h-auto px-2 text-destructive"
-                        >
-                          Delete
-                        </ConfirmFormButton>
-                      </form>
+                    <TableCell>
+                      <span className={[
+                        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                        c.active ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
+                      ].join(" ")}>
+                        {c.active ? "Active" : "Inactive"}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <CodeActionsMenu
+                        codeId={c.id}
+                        codeName={c.code}
+                        isActive={c.active}
+                        products={products}
+                        toggleAction={toggleCodeAction}
+                        deleteAction={deleteCodeAction}
+                        setProductsAction={setCodeProductsAction}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}

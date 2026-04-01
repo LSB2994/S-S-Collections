@@ -6,63 +6,58 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
-type IconName = "dashboard" | "orders" | "categories" | "products" | "discounts" | "store";
+type IconName = "dashboard" | "orders" | "categories" | "products" | "discounts" | "users" | "store";
 
 function NavIcon({ name, className = "size-4" }: { name: IconName; className?: string }) {
-  if (name === "dashboard") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className} aria-hidden="true">
-        <rect x="3" y="3" width="8" height="8" rx="2" />
-        <rect x="13" y="3" width="8" height="5" rx="2" />
-        <rect x="13" y="10" width="8" height="11" rx="2" />
-        <rect x="3" y="13" width="8" height="8" rx="2" />
-      </svg>
-    );
-  }
-  if (name === "orders") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className} aria-hidden="true">
-        <path d="M4 7h16" />
-        <path d="M4 12h16" />
-        <path d="M4 17h10" />
-        <rect x="3" y="4" width="18" height="16" rx="2" />
-      </svg>
-    );
-  }
-  if (name === "categories") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className} aria-hidden="true">
-        <path d="M4 7h16" />
-        <path d="M4 12h12" />
-        <path d="M4 17h8" />
-        <circle cx="18" cy="12" r="2" />
-        <circle cx="14" cy="17" r="2" />
-      </svg>
-    );
-  }
-  if (name === "products") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className} aria-hidden="true">
-        <path d="M4 7.5 12 3l8 4.5-8 4.5z" />
-        <path d="M4 7.5V16L12 21l8-5V7.5" />
-        <path d="M12 12v9" />
-      </svg>
-    );
-  }
-  if (name === "discounts") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className} aria-hidden="true">
-        <path d="M8 8h.01" />
-        <path d="M16 16h.01" />
-        <path d="m7 17 10-10" />
-        <rect x="3" y="6" width="18" height="12" rx="2" />
-      </svg>
-    );
-  }
+  const p = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" as const, strokeLinejoin: "round" as const, className, "aria-hidden": true };
+  if (name === "dashboard") return (
+    <svg {...p}>
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+  );
+  if (name === "orders") return (
+    <svg {...p}>
+      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+      <rect x="9" y="3" width="6" height="4" rx="1" />
+      <path d="M9 12h6M9 16h4" />
+    </svg>
+  );
+  if (name === "users") return (
+    <svg {...p}>
+      <path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3" />
+      <path d="M19 17c0-1.87-1.79-3.4-4-3.86" />
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3 20c0-3 2.69-5 6-5s6 2 6 5" />
+    </svg>
+  );
+  if (name === "categories") return (
+    <svg {...p}>
+      <path d="M3 5h4v4H3zM3 11h4v4H3zM3 17h4v4H3z" />
+      <path d="M11 6h10M11 12h10M11 18h6" />
+    </svg>
+  );
+  if (name === "products") return (
+    <svg {...p}>
+      <path d="M12 2 2 7l10 5 10-5-10-5z" />
+      <path d="M2 17l10 5 10-5" />
+      <path d="M2 12l10 5 10-5" />
+    </svg>
+  );
+  if (name === "discounts") return (
+    <svg {...p}>
+      <circle cx="9" cy="9" r="2" />
+      <circle cx="15" cy="15" r="2" />
+      <path d="M7 17 17 7" />
+      <path d="M3.34 14.66A8 8 0 0 1 12 4a8 8 0 0 1 8 8 8 8 0 0 1-8 8 8 8 0 0 1-5.66-2.34" />
+    </svg>
+  );
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className} aria-hidden="true">
-      <path d="M3 7h18v13H3z" />
-      <path d="M8 7a4 4 0 1 1 8 0" />
+    <svg {...p}>
+      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+      <path d="M3 6h18M16 10a4 4 0 0 1-8 0" />
     </svg>
   );
 }
@@ -79,7 +74,7 @@ const groups: {
     title: "Telegram shop",
     links: [
       { href: "/admin/telegram-orders", label: "Orders", icon: "orders" },
-      { href: "/admin/telegram-users", label: "Users", icon: "categories" },
+      { href: "/admin/telegram-users", label: "Users", icon: "users" },
       { href: "/admin/telegram-categories", label: "Categories", icon: "categories" },
       { href: "/admin/telegram-products", label: "Products & sizes", icon: "products" },
       { href: "/admin/telegram-promotions", label: "Discount codes", icon: "discounts" }
