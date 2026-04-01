@@ -40,6 +40,7 @@ const CB = {
   categoryPage: (categoryId: string, offset: number) => `catc:${categoryId}:${offset}`,
   product: (productId: string) => `p:${productId}`,
   variantAdd: (variantId: string) => `add:${variantId}`,
+  variantOos: (variantId: string) => `oos:${variantId}`,
   cart: "cart",
   cartQty: (cartItemId: string, qty: number) => `qty:${cartItemId}:${qty}`,
   checkout: "checkout",
@@ -219,26 +220,32 @@ async function sendCatalogByMain(ctx: BotContext, mainCategoryId: string, offset
   }
 
   const nextOffset = offset + products.length;
-  const nav = Markup.inlineKeyboard([
-    [
-      ...(offset > 0 ? [Markup.button.callback("Prev", CB.mainAll(mainCategoryId, Math.max(0, offset - 6)))] : []),
-      Markup.button.callback("Next", CB.mainAll(mainCategoryId, nextOffset))
-    ],
-    [Markup.button.callback("⬅ Categories", CB.mainPick(mainCategoryId))],
-    [Markup.button.callback("🧭 Sections", CB.categories)]
-  ]);
-  await ctx.reply("Browse more:", nav);
+  const hasMore = products.length === PAGE_SIZE;
+  const navRow: ReturnType<typeof Markup.button.callback>[] = [];
+  if (offset > 0) navRow.push(Markup.button.callback("◀ Prev", CB.mainAll(mainCategoryId, Math.max(0, offset - PAGE_SIZE))));
+  if (hasMore) navRow.push(Markup.button.callback("Next ▶", CB.mainAll(mainCategoryId, nextOffset)));
+  const rows: ReturnType<typeof Markup.button.callback>[][] = [];
+  if (navRow.length) rows.push(navRow);
+  rows.push([Markup.button.callback("⬅ Categories", CB.mainPick(mainCategoryId))]);
+  rows.push([Markup.button.callback("🧭 Sections", CB.categories)]);
+  await ctx.reply("Browse more:", Markup.inlineKeyboard(rows));
 }
 
 async function sendProduct(ctx: BotContext, productId: string) {
   const p = await getProduct(productId);
   const variants = await listActiveVariants(productId);
   if (!variants.length) {
-    await ctx.reply("No sizes available for this product.");
+    await ctx.reply("No sizes available for this product.", Markup.inlineKeyboard([[Markup.button.callback("🧭 Sections", CB.categories)]]));
     return;
   }
 
-  const buttons = variants.map((v) => [Markup.button.callback(`${v.size} · ${formatMoney(v.price_cents, v.currency)}`, CB.variantAdd(v.id))]);
+  const buttons = variants.map((v) => {
+    if (v.stock === 0) {
+      return [Markup.button.callback(`${v.size} · Sold out`, CB.variantOos(v.id))];
+    }
+    const stockNote = v.stock <= 5 ? ` (${v.stock} left)` : "";
+    return [Markup.button.callback(`${v.size} · ${formatMoney(v.price_cents, v.currency)}${stockNote}`, CB.variantAdd(v.id))];
+  });
 
   const kb = Markup.inlineKeyboard([
     ...buttons,
@@ -297,15 +304,15 @@ async function sendCart(ctx: BotContext) {
   }
 
   const currency = (cart as any[])[0]?.product_variants?.currency ?? "usd";
-  const text = `${lines.join("\n")}\n\nSubtotal: ${formatMoney(subtotal, currency)}`;
+  const text = [`🧺 *Your cart*`, "", ...lines.map(mdEscape), "", `*Subtotal: ${mdEscape(formatMoney(subtotal, currency))}*`].join("\n");
 
   const kb = Markup.inlineKeyboard([
     ...qtyButtons,
-    [Markup.button.callback("Checkout", CB.checkout)],
-    [Markup.button.callback("Keep shopping", CB.categories)]
+    [Markup.button.callback("✅ Checkout", CB.checkout)],
+    [Markup.button.callback("🛍 Keep shopping", CB.categories)]
   ]);
 
-  await ctx.reply(text, kb);
+  await ctx.reply(text, { parse_mode: "Markdown", ...kb });
 }
 
 async function sendCheckoutMenu(ctx: BotContext) {
@@ -351,14 +358,124 @@ async function createOrderFromCart(ctx: BotContext, method: "cod" | "stripe") {
   );
   await clearCart(user.id);
 
+  // Build order summary from the cart snapshot captured before clearing
+  const summaryLines = (cart as any[]).map((item) => {
+    const v = item.product_variants;
+    const title = v?.products?.title ?? "Item";
+    const unit = v?.price_cents ?? 0;
+    return `• ${mdEscape(title)} (${mdEscape(v?.size ?? "")}) x${item.qty} — ${mdEscape(formatMoney(unit * item.qty, v?.currency ?? currency))}`;
+  });
+  const shortId = orderId.slice(0, 8);
+
   if (method === "cod") {
-    await ctx.reply(`Order created: #${orderId}\nPayment: Cash on Delivery\nStatus: pending`);
+    const msg = [
+      `✅ *Order placed\\!*`,
+      `Order *#${shortId}…*`,
+      "",
+      ...summaryLines,
+      "",
+      `*Total: ${mdEscape(formatMoney(total, currency))}*`,
+      `Payment: Cash on Delivery`,
+      `Status: Pending`
+    ].join("\n");
+    await ctx.reply(msg, { parse_mode: "Markdown", ...Markup.inlineKeyboard([[Markup.button.callback("📦 My orders", "orders")]]) });
     return;
   }
 
-  await ctx.reply(`Order created: #${orderId}\nStatus: awaiting_payment\n\nOpen the payment link below:`, Markup.inlineKeyboard([
-    [Markup.button.url("Pay with Stripe", `${getTelegramEnv().PUBLIC_BASE_URL}/pay/${orderId}`)]
-  ]));
+  const msg = [
+    `✅ *Order placed\\!*`,
+    `Order *#${shortId}…*`,
+    "",
+    ...summaryLines,
+    "",
+    `*Total: ${mdEscape(formatMoney(total, currency))}*`,
+    `Status: Awaiting payment`
+  ].join("\n");
+  await ctx.reply(msg, {
+    parse_mode: "Markdown",
+    ...Markup.inlineKeyboard([[Markup.button.url("💳 Pay with Stripe", `${getTelegramEnv().PUBLIC_BASE_URL}/pay/${orderId}`)]])
+  });
+}
+
+async function dispatchCallback(ctx: BotContext, data: string) {
+  if (data === CB.cart) {
+    await ctx.answerCbQuery();
+    return sendCart(ctx);
+  }
+  if (data === CB.checkout) {
+    await ctx.answerCbQuery();
+    return sendCheckoutMenu(ctx);
+  }
+  if (data === CB.checkoutCOD || data === CB.checkoutStripe) {
+    await ctx.answerCbQuery();
+    if (data === CB.checkoutStripe && !getTelegramEnv().STRIPE_SECRET_KEY) {
+      await ctx.reply("Online payment is not configured. Use Cash on Delivery or contact the shop.");
+      return;
+    }
+    return createOrderFromCart(ctx, data === CB.checkoutCOD ? "cod" : "stripe");
+  }
+  if (data === CB.categories) {
+    await ctx.answerCbQuery();
+    return sendCategories(ctx);
+  }
+  if (data === "orders") {
+    await ctx.answerCbQuery();
+    return sendOrdersList(ctx);
+  }
+  if (data.startsWith("oos:")) {
+    return ctx.answerCbQuery("Sorry, this size is sold out.", { show_alert: true });
+  }
+  if (data.startsWith("cat:")) {
+    await ctx.answerCbQuery();
+    return sendCatalog(ctx, Number(data.split(":")[1] ?? 0) || 0);
+  }
+  if (data.startsWith("catc:")) {
+    await ctx.answerCbQuery();
+    const [, categoryId, offsetStr] = data.split(":");
+    if (!categoryId) return;
+    return sendCatalog(ctx, Number(offsetStr ?? 0) || 0, categoryId);
+  }
+  if (data.startsWith("mainm:")) {
+    await ctx.answerCbQuery();
+    const mainId = data.slice("mainm:".length);
+    if (!mainId) return;
+    return sendSubCategories(ctx, mainId);
+  }
+  if (data.startsWith("maina:")) {
+    await ctx.answerCbQuery();
+    const [, mainId, offsetStr] = data.split(":");
+    if (!mainId) return;
+    return sendCatalogByMain(ctx, mainId, Number(offsetStr ?? 0) || 0);
+  }
+  if (data.startsWith("p:")) {
+    await ctx.answerCbQuery();
+    return sendProduct(ctx, data.slice(2));
+  }
+  if (data.startsWith("add:")) {
+    await ctx.answerCbQuery("Added ✓");
+    const variantId = data.slice(4);
+    const user = await upsertUserFromTelegram(ctx.from);
+    await addToCart(user.id, variantId, 1);
+    let line = "Added to your cart.";
+    try {
+      const v = await getVariantSummary(variantId);
+      line = `✅ Added: *${mdEscape(v.title)}* — size ${mdEscape(v.size)} — ${mdEscape(formatMoney(v.price_cents, v.currency))}`;
+    } catch {
+      /* ignore */
+    }
+    return ctx.reply(line, {
+      parse_mode: "Markdown",
+      ...Markup.inlineKeyboard([[Markup.button.callback("🧺 View cart", CB.cart)], [Markup.button.callback("🛍 Keep shopping", CB.categories)]])
+    });
+  }
+  if (data.startsWith("qty:")) {
+    await ctx.answerCbQuery();
+    const [, cartItemId, qtyStr] = data.split(":");
+    const qty = Number(qtyStr);
+    if (!cartItemId || !Number.isFinite(qty)) return;
+    await updateCartQty(cartItemId, qty);
+    return sendCart(ctx);
+  }
 }
 
 export function getTelegramBot() {
@@ -387,9 +504,10 @@ export function getTelegramBot() {
   });
 
   bot.start(async (ctx) => {
+    const name = ctx.from?.first_name ? ` ${ctx.from.first_name}` : "";
     await ctx.reply(
       [
-        "Welcome to the shop.",
+        `Welcome${name}! 👋`,
         "",
         "Use the menu buttons below:",
         "• 🛍 Shop — browse items",
@@ -457,115 +575,35 @@ export function getTelegramBot() {
     if (!isAdmin(ctx)) return ctx.reply("Not allowed.");
     const parts = (ctx.message?.text ?? "").split(/\s+/).slice(1);
     const [orderId, status] = parts;
-    if (!orderId || !status) return ctx.reply("Usage: /admin_order <orderId> <status>");
+    if (!orderId || !status) return ctx.reply("Usage: /admin_order <orderId> <status>\nValid statuses: pending, awaiting_payment, paid, shipped, delivered, cancelled");
     await updateOrderStatus(orderId, status);
-    await ctx.reply("Order updated.");
+    await ctx.reply(`✅ Order ${orderId.slice(0, 8)}… updated to: ${status}`);
+  });
+
+  bot.command("admin_help", async (ctx) => {
+    if (!isAdmin(ctx)) return ctx.reply("Not allowed.");
+    await ctx.reply(
+      [
+        "🔧 *Admin commands*",
+        "",
+        "/admin_help — show this message",
+        "/admin_products — list active products",
+        "/admin_order <orderId> <status> — update order status",
+        "  Statuses: pending · awaiting_payment · paid · shipped · delivered · cancelled",
+        "/broadcast <message> — send message to all users"
+      ].join("\n"),
+      { parse_mode: "Markdown" }
+    );
   });
 
   bot.on("callback_query", async (ctx) => {
     const data = (ctx.callbackQuery as any)?.data as string | undefined;
     if (!data) return;
-
     try {
-      if (data === CB.cart) {
-        await ctx.answerCbQuery();
-        await sendCart(ctx);
-        return;
-      }
-
-      if (data === CB.checkout) {
-        await ctx.answerCbQuery();
-        await sendCheckoutMenu(ctx);
-        return;
-      }
-
-      if (data === CB.checkoutCOD || data === CB.checkoutStripe) {
-        await ctx.answerCbQuery();
-        if (data === CB.checkoutStripe && !getTelegramEnv().STRIPE_SECRET_KEY) {
-          await ctx.reply("Online payment is not configured. Use Cash on Delivery or contact the shop.");
-          return;
-        }
-        const method = data === CB.checkoutCOD ? "cod" : "stripe";
-        await createOrderFromCart(ctx, method);
-        return;
-      }
-
-      if (data.startsWith("cat:")) {
-        await ctx.answerCbQuery();
-        const offset = Number(data.split(":")[1] ?? 0) || 0;
-        await sendCatalog(ctx, offset);
-        return;
-      }
-
-      if (data === CB.categories) {
-        await ctx.answerCbQuery();
-        await sendCategories(ctx);
-        return;
-      }
-
-      if (data.startsWith("catc:")) {
-        await ctx.answerCbQuery();
-        const [, categoryId, offsetStr] = data.split(":");
-        const offset = Number(offsetStr ?? 0) || 0;
-        if (!categoryId) return;
-        await sendCatalog(ctx, offset, categoryId);
-        return;
-      }
-
-      if (data.startsWith("mainm:")) {
-        await ctx.answerCbQuery();
-        const mainId = data.slice("mainm:".length);
-        if (!mainId) return;
-        await sendSubCategories(ctx, mainId);
-        return;
-      }
-
-      if (data.startsWith("maina:")) {
-        await ctx.answerCbQuery();
-        const [, mainId, offsetStr] = data.split(":");
-        const offset = Number(offsetStr ?? 0) || 0;
-        if (!mainId) return;
-        await sendCatalogByMain(ctx, mainId, offset);
-        return;
-      }
-
-      if (data.startsWith("p:")) {
-        await ctx.answerCbQuery();
-        const productId = data.slice(2);
-        await sendProduct(ctx, productId);
-        return;
-      }
-
-      if (data.startsWith("add:")) {
-        await ctx.answerCbQuery("Added ✓");
-        const variantId = data.slice(4);
-        const user = await upsertUserFromTelegram(ctx.from!);
-        await addToCart(user.id, variantId, 1);
-        let line = "Added to your cart.";
-        try {
-          const v = await getVariantSummary(variantId);
-          line = `Added: ${v.title} — size ${v.size} — ${formatMoney(v.price_cents, v.currency)}`;
-        } catch {
-          /* ignore */
-        }
-        await ctx.reply(
-          line,
-          Markup.inlineKeyboard([[Markup.button.callback("View cart", CB.cart)], [Markup.button.callback("Keep shopping", CB.categories)]])
-        );
-        return;
-      }
-
-      if (data.startsWith("qty:")) {
-        await ctx.answerCbQuery();
-        const [, cartItemId, qtyStr] = data.split(":");
-        const qty = Number(qtyStr);
-        if (!cartItemId || !Number.isFinite(qty)) return;
-        await updateCartQty(cartItemId, qty);
-        await sendCart(ctx);
-        return;
-      }
+      await dispatchCallback(ctx, data);
     } catch (e: any) {
-      await ctx.reply(`Error: ${e?.message ?? "unknown"}`);
+      console.error("callback_query error:", data, e);
+      await ctx.reply("Something went wrong. Please try again or contact the shop.");
     }
   });
 
