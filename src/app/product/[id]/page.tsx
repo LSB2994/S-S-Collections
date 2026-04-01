@@ -38,8 +38,34 @@ export default function ProductPage() {
             ← Shop
           </Link>
         </header>
-        <main className="mx-auto max-w-4xl px-4 py-12 text-center text-stone-500">
-          Loading…
+        <main className="mx-auto max-w-4xl px-4 py-8">
+          <div className="flex flex-col gap-8 lg:flex-row">
+            {/* Image skeleton */}
+            <div className="w-full animate-pulse lg:w-1/2">
+              <div className="aspect-square rounded-2xl bg-stone-200" />
+              <div className="mt-3 flex gap-2">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="h-16 w-16 rounded-lg bg-stone-200" />
+                ))}
+              </div>
+            </div>
+            {/* Info skeleton */}
+            <div className="flex-1 space-y-4 animate-pulse">
+              <div className="h-8 w-3/4 rounded-md bg-stone-200" />
+              <div className="h-6 w-1/4 rounded-md bg-stone-200" />
+              <div className="space-y-2 pt-2">
+                <div className="h-4 w-full rounded bg-stone-200" />
+                <div className="h-4 w-5/6 rounded bg-stone-200" />
+                <div className="h-4 w-4/6 rounded bg-stone-200" />
+              </div>
+              <div className="flex flex-wrap gap-2 pt-4">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="h-10 w-20 rounded-lg bg-stone-200" />
+                ))}
+              </div>
+              <div className="h-12 w-full rounded-xl bg-stone-200" />
+            </div>
+          </div>
         </main>
       </div>
     );
