@@ -321,9 +321,8 @@ export default async function TelegramProductsAdminPage({
                   <Textarea name="description" rows={3} placeholder="Shown in the bot and checkout" />
                 </Field>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Image URLs</Label>
+                  <Label className="text-xs text-muted-foreground">Images</Label>
                   <ProductImageUrlsField name="image_urls" />
-                  <p className="text-xs text-muted-foreground">First image becomes the thumbnail.</p>
                 </div>
                 {categories.length > 0 && (
                   <div className="space-y-1.5">
@@ -449,7 +448,7 @@ export default async function TelegramProductsAdminPage({
                                   <Textarea name="description" rows={3} defaultValue={p.description ?? ""} />
                                 </Field>
                                 <div className="space-y-1.5">
-                                  <Label className="text-xs text-muted-foreground">Image URLs</Label>
+                                  <Label className="text-xs text-muted-foreground">Images</Label>
                                   <ProductImageUrlsField key={p.id} name="image_urls" initialUrls={allImageUrls(p)} />
                                 </div>
                                 <div className="flex items-center justify-between">
