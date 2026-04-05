@@ -12,11 +12,12 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabaseAdminFetch } from "@/lib/supabaseAdmin";
 
-type MainCategory = { id: string; name: string; slug: string; active: boolean };
+type MainCategory = { id: string; name: string; slug: string; active: boolean; created_at: string; updated_at?: string; };
 type Category = {
   id: string; name: string; slug: string; active: boolean;
   main_category_id: string;
   main_categories: { name: string; slug: string } | null;
+  created_at: string; updated_at?: string;
 };
 
 async function listMainCategories(): Promise<MainCategory[]> {
@@ -58,7 +59,7 @@ async function updateCategoryAction(formData: FormData) {
   await supabaseAdminFetch(`/rest/v1/categories?id=eq.${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { Prefer: "return=representation" },
-    body: JSON.stringify({ name, slug, active, main_category_id })
+    body: JSON.stringify({ name, slug, active, main_category_id, updated_at: new Date().toISOString() })
   });
   revalidatePath("/admin/telegram-categories");
   revalidatePath("/admin/telegram-products");
@@ -87,6 +88,12 @@ function Select(props: SelectHTMLAttributes<HTMLSelectElement> & { children: Rea
       {children}
     </select>
   );
+}
+
+function formatDates(created?: string, updated?: string) {
+  const f = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+  if (!created) return null;
+  return `Created: ${f(created)}${updated && updated !== created ? ` • Updated: ${f(updated)}` : ""}`;
 }
 
 export default async function TelegramCategoriesPage({
@@ -265,6 +272,9 @@ export default async function TelegramCategoriesPage({
                                     <Trash2 className="h-4 w-4" />
                                   </ConfirmFormButton>
                                 </div>
+                                <div className="text-[10px] text-muted-foreground text-right pt-1">
+                                  {formatDates(c.created_at, c.updated_at)}
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -327,6 +337,9 @@ export default async function TelegramCategoriesPage({
                               <Check className="h-3.5 w-3.5 mr-1.5" />
                               Save
                             </Button>
+                          </div>
+                          <div className="text-[11px] text-muted-foreground text-center">
+                            {formatDates(c.created_at, c.updated_at)}
                           </div>
                         </div>
                       ))}

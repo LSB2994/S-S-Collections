@@ -25,6 +25,7 @@ type Product = {
   image_urls?: string[] | null;
   active: boolean;
   created_at: string;
+  updated_at: string;
 };
 
 function parseImageUrlsFromForm(formData: FormData): { image_url: string | null; image_urls: string[] | null } {
@@ -75,6 +76,7 @@ type Category = {
 type Variant = {
   id: string; product_id: string; size: string;
   price_cents: number; currency: string; stock: number; active: boolean;
+  created_at: string; updated_at?: string;
 };
 
 async function listProducts(): Promise<Product[]> {
@@ -125,7 +127,7 @@ async function updateProductAction(formData: FormData) {
   const active = formData.get("active") === "on";
   if (!id) throw new Error("Missing product id");
   if (!title) throw new Error("Title is required");
-  await patchProductRow(id, { title, description: description || null, image_url, image_urls, active });
+  await patchProductRow(id, { title, description: description || null, image_url, image_urls, active, updated_at: new Date().toISOString() });
   revalidatePath("/admin/telegram-products");
 }
 
@@ -168,7 +170,7 @@ async function updateVariantAction(formData: FormData) {
   if (!size) throw new Error("Size is required");
   await supabaseAdminFetch(`/rest/v1/product_variants?id=eq.${encodeURIComponent(id)}`, {
     method: "PATCH", headers: { Prefer: "return=representation" },
-    body: JSON.stringify({ size, price_cents, currency, stock, active })
+    body: JSON.stringify({ size, price_cents, currency, stock, active, updated_at: new Date().toISOString() })
   });
   revalidatePath("/admin/telegram-products");
 }
@@ -214,6 +216,12 @@ function StatusPill({ active }: { active: boolean }) {
       {active ? "Active" : "Inactive"}
     </span>
   );
+}
+
+function formatDates(created?: string, updated?: string) {
+  const f = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+  if (!created) return null;
+  return `Created: ${f(created)}${updated && updated !== created ? ` • Updated: ${f(updated)}` : ""}`;
 }
 
 function priceRange(variants: Variant[]): string {
@@ -290,10 +298,13 @@ export default async function TelegramProductsAdminPage({
                                     <input type="checkbox" name="active" defaultChecked={p.active} className="size-4 accent-primary" />
                                     Active
                                   </label>
-                                  <Button type="submit" size="sm" className="gap-1.5"><Check className="h-3.5 w-3.5" />Save</Button>
-                                </div>
-                              </form>
-                            </div>
+                                    <Button type="submit" size="sm" className="gap-1.5"><Check className="h-3.5 w-3.5" />Save</Button>
+                                  </div>
+                                  <div className="text-[11px] text-muted-foreground text-center pt-2">
+                                    {formatDates(p.created_at, p.updated_at)}
+                                  </div>
+                                </form>
+                              </div>
                           </details>
 
                           <details className="rounded-xl border bg-white px-4 py-3 open:pb-4">
@@ -393,6 +404,9 @@ export default async function TelegramProductsAdminPage({
                                                 </form>
                                                 <Button type="submit" size="sm" className="gap-1.5"><Check className="h-3.5 w-3.5" />Save</Button>
                                               </div>
+                                            </div>
+                                            <div className="text-[11px] text-muted-foreground text-center pt-1">
+                                              {formatDates(v.created_at, v.updated_at)}
                                             </div>
                                           </form>
                                         </ActionModal>

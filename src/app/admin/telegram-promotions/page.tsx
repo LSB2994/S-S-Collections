@@ -12,6 +12,12 @@ import { supabaseAdminFetch } from "@/lib/supabaseAdmin";
 
 type ProductRow = { id: string; title: string; active: boolean };
 
+function formatDates(created?: string, updated?: string) {
+  const f = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+  if (!created) return null;
+  return `Created: ${f(created)}${updated && updated !== created ? ` • Updated: ${f(updated)}` : ""}`;
+}
+
 type DiscountCode = {
   id: string;
   code: string;
@@ -255,6 +261,9 @@ export default async function TelegramPromotionsAdminPage({
                           <div className="text-xs text-muted-foreground mt-0.5">
                             {productCountByCodeId.get(c.id) ? `${productCountByCodeId.get(c.id)} product(s)` : "All products"}
                           </div>
+                          <div className="text-[10px] text-muted-foreground mt-1">
+                            {formatDates(c.created_at)}
+                          </div>
                         </TableCell>
                         <TableCell className="text-center tabular-nums">
                           {c.usage_count}
@@ -290,6 +299,9 @@ export default async function TelegramPromotionsAdminPage({
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {productCountByCodeId.get(c.id) ? `${productCountByCodeId.get(c.id)} product(s)` : "All products"} · Used {c.usage_count}{c.usage_limit != null ? `/${c.usage_limit}` : ""}x
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {formatDates(c.created_at)}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
