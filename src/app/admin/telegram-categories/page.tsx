@@ -155,8 +155,8 @@ export default async function TelegramCategoriesPage({
             const subs = filteredCategories.filter((c) => c.main_category_id === main.id);
             return (
               <Card key={main.id} className="rounded-2xl border-slate-200 bg-white shadow-sm">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                  <div>
+                <CardHeader className="flex flex-col items-start justify-between gap-3 space-y-0 pb-3 sm:flex-row sm:items-center">
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-base">{main.name}</CardTitle>
                       {!main.active && (

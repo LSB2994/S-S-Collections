@@ -197,7 +197,7 @@ export default async function TelegramPromotionsAdminPage({
 
       {/* All codes */}
       <Card className="rounded-2xl border-slate-200 bg-white shadow-sm">
-        <CardHeader className="pb-4 flex flex-row items-center justify-between space-y-0">
+        <CardHeader className="flex flex-col items-start justify-between gap-3 space-y-0 pb-4 sm:flex-row sm:items-center">
           <CardTitle className="text-base">
             All codes
             <span className="ml-2 text-sm font-normal text-muted-foreground">({codes.length})</span>

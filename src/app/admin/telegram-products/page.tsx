@@ -454,12 +454,12 @@ export default async function TelegramProductsAdminPage({
 
       {/* Products card */}
       <Card className="rounded-2xl border-slate-200 bg-white shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardHeader className="flex flex-col items-start justify-between gap-3 space-y-0 pb-4 sm:flex-row sm:items-center">
           <CardTitle className="text-base">
             Products
             <span className="ml-2 text-sm font-normal text-muted-foreground">({filteredProducts.length})</span>
           </CardTitle>
-          <div className="flex gap-2">
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             <ActionModal
               title="Add variant"
               trigger={<span className="inline-flex items-center gap-1.5"><Layers3 className="h-4 w-4" />Add variant</span>}
