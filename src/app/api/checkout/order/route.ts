@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 
 import { supabaseAdminFetch } from "@/lib/supabaseAdmin";
+import { sendAdminAlert } from "@/lib/telegram/alert";
 
 type LineItem = {
   productId: string;
@@ -210,6 +211,10 @@ export async function POST(req: Request) {
       }))
     )
   });
+
+  const itemsText = items.map((i) => `• ${i.productName} x${i.quantity} (${i.price})`).join("\n");
+  const alertMsg = `🚀 *New Website Order Request!*\n\n*Order ID*: \`${orderId}\`\n*Total*: ${total}\n*Phone*: ${contactPhone}\n*Telegram*: ${contactTelegram || "None"}\n\n*Items*:\n${itemsText}`;
+  await sendAdminAlert(alertMsg);
 
   return Response.json({ id: orderId });
 }

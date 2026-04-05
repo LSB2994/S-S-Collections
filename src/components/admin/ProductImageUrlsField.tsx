@@ -57,6 +57,7 @@ export function ProductImageUrlsField({ name, initialUrls }: Props) {
     return u.map((url) => ({ url, uploading: false }));
   });
   const [dragOver, setDragOver] = useState(false);
+  const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = useCallback(async (files: FileList | File[]) => {
@@ -79,7 +80,16 @@ export function ProductImageUrlsField({ name, initialUrls }: Props) {
     }
   }, [rows.length]);
 
-  const remove = (i: number) => setRows((r) => r.filter((_, j) => j !== i));
+  const remove = (i: number) => {
+    setDeleteIndex(i);
+  };
+
+  const confirmRemove = () => {
+    if (deleteIndex !== null) {
+      setRows((r) => r.filter((_, j) => j !== deleteIndex));
+      setDeleteIndex(null);
+    }
+  };
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -153,6 +163,31 @@ export function ProductImageUrlsField({ name, initialUrls }: Props) {
           e.target.value = "";
         }}
       />
+
+      {deleteIndex !== null && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]"
+          onClick={() => setDeleteIndex(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-[24px] border border-slate-200 bg-white p-6 text-center shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-2 text-lg font-semibold text-slate-900">Confirm Action</h3>
+            <p className="mb-6 text-sm text-slate-500">
+              Are you sure you want to delete this image?
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <Button type="button" variant="outline" onClick={() => setDeleteIndex(null)}>
+                Cancel
+              </Button>
+              <Button type="button" variant="destructive" onClick={confirmRemove}>
+                Confirm
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

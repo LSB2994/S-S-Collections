@@ -263,174 +263,8 @@ export default async function TelegramProductsAdminPage({
     return [p.title, p.description ?? "", p.id].join(" ").toLowerCase().includes(q);
   });
 
-  return (
-    <div className="space-y-6">
-      <AdminPageHeader
-        title="Products & sizes"
-        description="Manage catalog items, variants (size/price/stock) and category assignments."
-      >
-        <AdminSecondaryLink href="/admin/telegram-categories">Categories</AdminSecondaryLink>
-        <AdminSecondaryLink href="/admin">Dashboard</AdminSecondaryLink>
-      </AdminPageHeader>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {[
-          { label: "Total products", value: products.length, icon: Package, color: "text-orange-500" },
-          { label: "Active", value: activeProducts, icon: CheckCircle, color: "text-green-500" },
-          { label: "Total variants", value: allVariants.length, icon: Layers3, color: "text-sky-500" },
-          { label: "In stock", value: inStockVariants, icon: Archive, color: "text-emerald-500" }
-        ].map(({ label, value, icon: Icon, color }) => (
-          <Card key={label} className="rounded-2xl border-slate-200 bg-white shadow-sm">
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-xs text-muted-foreground">{label}</p>
-                <Icon className={`h-4 w-4 ${color}`} />
-              </div>
-              <p className="mt-1 text-xl font-semibold text-slate-900">{value}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Products card */}
-      <Card className="rounded-2xl border-slate-200 bg-white shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <CardTitle className="text-base">
-            Products
-            <span className="ml-2 text-sm font-normal text-muted-foreground">({filteredProducts.length})</span>
-          </CardTitle>
-          <div className="flex gap-2">
-            <ActionModal
-              title="Add variant"
-              trigger={<span className="inline-flex items-center gap-1.5"><Layers3 className="h-4 w-4" />Add variant</span>}
-              triggerSize="sm"
-              triggerVariant="outline"
-            >
-              <AddVariantForm action={createVariantAction} products={products} />
-            </ActionModal>
-            <ActionModal
-              title="Add product"
-              trigger={<span className="inline-flex items-center gap-1.5"><PackagePlus className="h-4 w-4" />Add product</span>}
-              triggerSize="sm"
-              triggerVariant="default"
-            >
-              <form action={createProductAction} className="space-y-4">
-                <Field label="Title"><Input name="title" required /></Field>
-                <Field label="Description">
-                  <Textarea name="description" rows={3} placeholder="Shown in the bot and checkout" />
-                </Field>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Images</Label>
-                  <ProductImageUrlsField name="image_urls" />
-                </div>
-                {categories.length > 0 && (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Categories</Label>
-                    <div className="max-h-48 overflow-y-auto rounded-lg border divide-y">
-                      {categories.map((c) => (
-                        <label key={c.id} className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-muted/40 transition-colors">
-                          <input type="checkbox" name="create_category_ids" value={c.id} className="size-4 accent-primary shrink-0" />
-                          <span className={!c.active ? "text-muted-foreground line-through" : ""}>
-                            {c.main_categories?.name ? `${c.main_categories.name} › ` : ""}{c.name}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                    <input type="checkbox" name="active" defaultChecked className="size-4 accent-primary" />
-                    Active immediately
-                  </label>
-                  <Button type="submit">Create product</Button>
-                </div>
-              </form>
-            </ActionModal>
-          </div>
-        </CardHeader>
-        <Separator />
-
-        {/* Filter */}
-        <CardContent className="pt-3 pb-0">
-          <form className="flex flex-wrap gap-3">
-            <div className="flex-1 min-w-48">
-              <Input name="q" placeholder="Search title, description, ID…" defaultValue={params?.q ?? ""} className="h-8 text-sm" />
-            </div>
-            <div className="w-36">
-              <NativeSelect name="status" defaultValue={statusFilter} className="h-8 text-sm">
-                <option value="all">All statuses</option>
-                <option value="active">Active only</option>
-                <option value="inactive">Inactive only</option>
-              </NativeSelect>
-            </div>
-            <div className="w-44">
-              <NativeSelect name="linked" defaultValue={linkedFilter} className="h-8 text-sm">
-                <option value="all">All category links</option>
-                <option value="linked">Has category</option>
-                <option value="unlinked">No category</option>
-              </NativeSelect>
-            </div>
-            <Button type="submit" variant="secondary" size="sm" className="gap-1.5"><SlidersHorizontal className="h-3.5 w-3.5" />Filter</Button>
-          </form>
-        </CardContent>
-
-        {/* Table */}
-        {filteredProducts.length === 0 ? (
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            {products.length === 0 ? "No products yet. Add one above." : "No products match your filter."}
-          </CardContent>
-        ) : (
-          <Table className="mt-3">
-            <TableHeader>
-              <TableRow className="bg-muted/40 hover:bg-muted/40">
-                <TableHead>Product</TableHead>
-                <TableHead className="w-24">Status</TableHead>
-                <TableHead className="w-36">Price range</TableHead>
-                <TableHead className="w-20 text-center">Variants</TableHead>
-                <TableHead className="w-20 text-center">In stock</TableHead>
-                <TableHead className="w-20 text-center">Cats</TableHead>
-                <TableHead className="w-12" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredProducts.map((p) => {
-                const variants = variantsByProductId.get(p.id) ?? [];
-                const catCount = (categoryIdsByProductId.get(p.id) ?? new Set()).size;
-                const inStock = variants.filter((v) => v.active && v.stock > 0).length;
-                const img = allImageUrls(p)[0];
-                return (
-                  <TableRow key={p.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        {img ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={img} alt="" className="h-10 w-10 shrink-0 rounded-lg border object-cover" />
-                        ) : (
-                          <div className="h-10 w-10 shrink-0 rounded-lg border bg-slate-50" />
-                        )}
-                        <div className="min-w-0">
-                          <p className="truncate font-medium text-slate-900">{p.title}</p>
-                          <p className="truncate text-xs text-muted-foreground font-mono">{p.id.slice(0, 8)}…</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell><StatusPill active={p.active} /></TableCell>
-                    <TableCell className="text-sm tabular-nums">{priceRange(variants)}</TableCell>
-                    <TableCell className="text-center tabular-nums">{variants.length}</TableCell>
-                    <TableCell className="text-center">
-                      <span className={inStock > 0 ? "text-green-600 font-medium tabular-nums" : "text-muted-foreground tabular-nums"}>
-                        {inStock}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-center tabular-nums">
-                      {catCount === 0
-                        ? <span className="text-amber-600 text-xs font-medium">none</span>
-                        : catCount}
-                    </TableCell>
-                    <TableCell>
-                      <ActionModal
+  const renderActions = (p: Product, variants: Variant[], catCount: number) => (
+<ActionModal
                         title={p.title}
                         triggerSize="icon"
                         triggerVariant="ghost"
@@ -586,12 +420,241 @@ export default async function TelegramProductsAdminPage({
                           </div>
                         </div>
                       </ActionModal>
+  );
+
+  return (
+    <div className="space-y-6">
+      <AdminPageHeader
+        title="Products & sizes"
+        description="Manage catalog items, variants (size/price/stock) and category assignments."
+      >
+        <AdminSecondaryLink href="/admin/telegram-categories">Categories</AdminSecondaryLink>
+        <AdminSecondaryLink href="/admin">Dashboard</AdminSecondaryLink>
+      </AdminPageHeader>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {[
+          { label: "Total products", value: products.length, icon: Package, color: "text-orange-500" },
+          { label: "Active", value: activeProducts, icon: CheckCircle, color: "text-green-500" },
+          { label: "Total variants", value: allVariants.length, icon: Layers3, color: "text-sky-500" },
+          { label: "In stock", value: inStockVariants, icon: Archive, color: "text-emerald-500" }
+        ].map(({ label, value, icon: Icon, color }) => (
+          <Card key={label} className="rounded-2xl border-slate-200 bg-white shadow-sm">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs text-muted-foreground">{label}</p>
+                <Icon className={`h-4 w-4 ${color}`} />
+              </div>
+              <p className="mt-1 text-xl font-semibold text-slate-900">{value}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Products card */}
+      <Card className="rounded-2xl border-slate-200 bg-white shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <CardTitle className="text-base">
+            Products
+            <span className="ml-2 text-sm font-normal text-muted-foreground">({filteredProducts.length})</span>
+          </CardTitle>
+          <div className="flex gap-2">
+            <ActionModal
+              title="Add variant"
+              trigger={<span className="inline-flex items-center gap-1.5"><Layers3 className="h-4 w-4" />Add variant</span>}
+              triggerSize="sm"
+              triggerVariant="outline"
+            >
+              <AddVariantForm action={createVariantAction} products={products} />
+            </ActionModal>
+            <ActionModal
+              title="Add product"
+              trigger={<span className="inline-flex items-center gap-1.5"><PackagePlus className="h-4 w-4" />Add product</span>}
+              triggerSize="sm"
+              triggerVariant="default"
+            >
+              <form action={createProductAction} className="space-y-4">
+                <Field label="Title"><Input name="title" required /></Field>
+                <Field label="Description">
+                  <Textarea name="description" rows={3} placeholder="Shown in the bot and checkout" />
+                </Field>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Images</Label>
+                  <ProductImageUrlsField name="image_urls" />
+                </div>
+                {categories.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Categories</Label>
+                    <div className="max-h-48 overflow-y-auto rounded-lg border divide-y">
+                      {categories.map((c) => (
+                        <label key={c.id} className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-muted/40 transition-colors">
+                          <input type="checkbox" name="create_category_ids" value={c.id} className="size-4 accent-primary shrink-0" />
+                          <span className={!c.active ? "text-muted-foreground line-through" : ""}>
+                            {c.main_categories?.name ? `${c.main_categories.name} › ` : ""}{c.name}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                    <input type="checkbox" name="active" defaultChecked className="size-4 accent-primary" />
+                    Active immediately
+                  </label>
+                  <Button type="submit">Create product</Button>
+                </div>
+              </form>
+            </ActionModal>
+          </div>
+        </CardHeader>
+        <Separator />
+
+        {/* Filter */}
+        <CardContent className="pt-3 pb-0">
+          <form className="flex flex-wrap gap-3">
+            <div className="flex-1 min-w-48">
+              <Input name="q" placeholder="Search title, description, ID…" defaultValue={params?.q ?? ""} className="h-8 text-sm" />
+            </div>
+            <div className="w-36">
+              <NativeSelect name="status" defaultValue={statusFilter} className="h-8 text-sm">
+                <option value="all">All statuses</option>
+                <option value="active">Active only</option>
+                <option value="inactive">Inactive only</option>
+              </NativeSelect>
+            </div>
+            <div className="w-44">
+              <NativeSelect name="linked" defaultValue={linkedFilter} className="h-8 text-sm">
+                <option value="all">All category links</option>
+                <option value="linked">Has category</option>
+                <option value="unlinked">No category</option>
+              </NativeSelect>
+            </div>
+            <Button type="submit" variant="secondary" size="sm" className="gap-1.5"><SlidersHorizontal className="h-3.5 w-3.5" />Filter</Button>
+          </form>
+        </CardContent>
+
+        {/* Table */}
+        {filteredProducts.length === 0 ? (
+          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+            {products.length === 0 ? "No products yet. Add one above." : "No products match your filter."}
+          </CardContent>
+        ) : (
+          
+          <>
+            <div className="hidden sm:block">
+              <Table className="mt-3">
+            <TableHeader>
+              <TableRow className="bg-muted/40 hover:bg-muted/40">
+                <TableHead>Product</TableHead>
+                <TableHead className="w-24">Status</TableHead>
+                <TableHead className="w-36">Price range</TableHead>
+                <TableHead className="w-20 text-center">Variants</TableHead>
+                <TableHead className="w-20 text-center">In stock</TableHead>
+                <TableHead className="w-20 text-center">Cats</TableHead>
+                <TableHead className="w-12" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredProducts.map((p) => {
+                const variants = variantsByProductId.get(p.id) ?? [];
+                const catCount = (categoryIdsByProductId.get(p.id) ?? new Set()).size;
+                const inStock = variants.filter((v) => v.active && v.stock > 0).length;
+                const img = allImageUrls(p)[0];
+                return (
+                  <TableRow key={p.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        {img ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={img} alt="" className="h-10 w-10 shrink-0 rounded-lg border object-cover" />
+                        ) : (
+                          <div className="h-10 w-10 shrink-0 rounded-lg border bg-slate-50" />
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-slate-900">{p.title}</p>
+                          <p className="truncate text-xs text-muted-foreground font-mono">{p.id.slice(0, 8)}…</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell><StatusPill active={p.active} /></TableCell>
+                    <TableCell className="text-sm tabular-nums">{priceRange(variants)}</TableCell>
+                    <TableCell className="text-center tabular-nums">{variants.length}</TableCell>
+                    <TableCell className="text-center">
+                      <span className={inStock > 0 ? "text-green-600 font-medium tabular-nums" : "text-muted-foreground tabular-nums"}>
+                        {inStock}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center tabular-nums">
+                      {catCount === 0
+                        ? <span className="text-amber-600 text-xs font-medium">none</span>
+                        : catCount}
+                    </TableCell>
+                    <TableCell>
+                      {renderActions(p, variants, catCount)}
                     </TableCell>
                   </TableRow>
                 );
               })}
             </TableBody>
           </Table>
+            </div>
+            
+            <div className="sm:hidden flex flex-col gap-4 px-4 pb-4 mt-1">
+              {filteredProducts.map((p) => {
+                const variants = variantsByProductId.get(p.id) ?? [];
+                const catCount = (categoryIdsByProductId.get(p.id) ?? new Set()).size;
+                const inStock = variants.filter((v) => v.active && v.stock > 0).length;
+                const img = allImageUrls(p)[0];
+                return (
+                  <div key={p.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {img ? (
+                          <img src={img} alt="" className="h-14 w-14 shrink-0 rounded-xl border object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                          <div className="h-14 w-14 shrink-0 rounded-xl border bg-slate-50" />
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-slate-900 leading-tight">{p.title}</p>
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground font-mono">{p.id.slice(0, 8)}…</p>
+                          <div className="mt-1.5"><StatusPill active={p.active} /></div>
+                        </div>
+                      </div>
+                      <div className="shrink-0 pt-0.5">
+                        {renderActions(p, variants, catCount)}
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-y-2 gap-x-4 rounded-xl bg-slate-50 p-3 text-sm">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-0.5">Price range</p>
+                        <p className="font-medium tabular-nums text-slate-900">{priceRange(variants)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-0.5">Categories</p>
+                        <p className="font-medium tabular-nums text-slate-700">
+                          {catCount === 0 ? <span className="text-amber-600 font-normal">none</span> : catCount}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-0.5">Variants</p>
+                        <p className="font-medium tabular-nums text-slate-700">{variants.length}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-0.5">In stock</p>
+                        <p className={"font-medium tabular-nums " + (inStock > 0 ? "text-green-600" : "text-muted-foreground")}>
+                          {inStock}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+
         )}
       </Card>
     </div>

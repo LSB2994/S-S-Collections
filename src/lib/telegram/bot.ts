@@ -27,6 +27,7 @@ import {
   upsertUserFromTelegram
 } from "./db";
 import { formatMoney } from "./money";
+import { sendAdminAlert } from "./alert";
 
 type BotContext = Parameters<Telegraf["on"]>[1] extends (ctx: infer C) => any ? C : any;
 
@@ -369,6 +370,15 @@ async function createOrderFromCart(ctx: BotContext, method: "cod" | "stripe") {
     return `• ${mdEscape(title)} (${mdEscape(v?.size ?? "")}) x${item.qty} — ${mdEscape(formatMoney(unit * item.qty, v?.currency ?? currency))}`;
   });
   const shortId = orderId.slice(0, 8);
+
+  const plainSummary = (cart as any[]).map((item) => {
+    const v = item.product_variants;
+    const title = v?.products?.title ?? "Item";
+    const unit = v?.price_cents ?? 0;
+    return `• ${title} (${v?.size ?? ""}) x${item.qty} — ${formatMoney(unit * item.qty, v?.currency ?? currency)}`;
+  });
+  const adminMsg = `🤖 *New Bot Order Request!*\n\n*Order ID*: \`${orderId}\`\n*User*: ${user.first_name || "Unknown"} (@${user.telegram_username || "None"}, Phone: ${user.phone || "None"})\n*Total*: ${formatMoney(total, currency)}\n\n*Items*:\n${plainSummary.join("\n")}`;
+  sendAdminAlert(adminMsg).catch(() => {});
 
   if (method === "cod") {
     const msg = [

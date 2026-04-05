@@ -20,15 +20,22 @@ export async function POST(req: NextRequest) {
     {
       method: "POST",
       headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
         authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
         "x-upsert": "true",
+        "Content-Type": file.type || "application/octet-stream",
       },
-      body: file,
+      body: await file.arrayBuffer(),
     }
   );
 
   if (!uploadRes.ok) {
     const text = await uploadRes.text().catch(() => "");
+    console.error("Supabase upload error:", {
+      status: uploadRes.status,
+      statusText: uploadRes.statusText,
+      error: text,
+    });
     return NextResponse.json(
       { error: `Upload failed: ${text || uploadRes.statusText}` },
       { status: uploadRes.status }

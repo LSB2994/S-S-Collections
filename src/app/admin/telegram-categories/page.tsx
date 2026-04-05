@@ -210,65 +210,127 @@ export default async function TelegramCategoriesPage({
                         </form>
                       </span>
                     ))}
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/40 hover:bg-muted/40">
-                          <TableHead className="w-32">Section</TableHead>
-                          <TableHead>Display name</TableHead>
-                          <TableHead>Slug</TableHead>
-                          <TableHead className="w-16 text-center">Active</TableHead>
-                          <TableHead className="w-20 text-right" />
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {subs.map((c) => (
-                          <TableRow key={c.id} className="align-middle group">
-                            <TableCell className="py-1.5">
-                              <Select name="main_category_id" form={`upd-${c.id}`} required defaultValue={c.main_category_id}>
+                    <div className="hidden sm:block">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/40 hover:bg-muted/40">
+                            <TableHead className="w-32">Section</TableHead>
+                            <TableHead>Display name</TableHead>
+                            <TableHead>Slug</TableHead>
+                            <TableHead className="w-16 text-center">Active</TableHead>
+                            <TableHead className="w-20 text-right" />
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {subs.map((c) => (
+                            <TableRow key={c.id} className="align-middle group">
+                              <TableCell className="py-1.5">
+                                <Select name="main_category_id" form={`upd-${c.id}`} required defaultValue={c.main_category_id}>
+                                  {mains.map((m) => (
+                                    <option key={m.id} value={m.id} disabled={!m.active && m.id !== c.main_category_id}>
+                                      {m.name}{!m.active ? " (off)" : ""}
+                                    </option>
+                                  ))}
+                                </Select>
+                              </TableCell>
+                              <TableCell className="py-1.5">
+                                <Input name="name" form={`upd-${c.id}`} defaultValue={c.name} required className="h-8" />
+                              </TableCell>
+                              <TableCell className="py-1.5">
+                                <Input name="slug" form={`upd-${c.id}`} defaultValue={c.slug} required className="h-8 font-mono text-xs" />
+                              </TableCell>
+                              <TableCell className="py-1.5 text-center">
+                                <input type="checkbox" name="active" form={`upd-${c.id}`} defaultChecked={c.active} className="size-4 accent-primary cursor-pointer" />
+                              </TableCell>
+                              <TableCell className="py-1.5">
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button
+                                    type="submit"
+                                    form={`upd-${c.id}`}
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 w-8 p-0 text-green-600 hover:bg-green-50 hover:text-green-700"
+                                    title="Save"
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </Button>
+                                  <ConfirmFormButton
+                                    form={`del-${c.id}`}
+                                    message={`Delete "${c.name}"? Remove it from products first if the delete fails.`}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </ConfirmFormButton>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* Mobile list view */}
+                    <div className="sm:hidden flex flex-col gap-4 p-4 pt-0">
+                      {subs.map((c) => (
+                        <div key={c.id} className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex-1">
+                              <span className="text-[10px] uppercase text-muted-foreground font-semibold tracking-wider mb-1 block">Section</span>
+                              <Select name="main_category_id" form={`upd-${c.id}`} required defaultValue={c.main_category_id} className="h-8 text-xs font-semibold bg-slate-50">
                                 {mains.map((m) => (
                                   <option key={m.id} value={m.id} disabled={!m.active && m.id !== c.main_category_id}>
                                     {m.name}{!m.active ? " (off)" : ""}
                                   </option>
                                 ))}
                               </Select>
-                            </TableCell>
-                            <TableCell className="py-1.5">
-                              <Input name="name" form={`upd-${c.id}`} defaultValue={c.name} required className="h-8" />
-                            </TableCell>
-                            <TableCell className="py-1.5">
-                              <Input name="slug" form={`upd-${c.id}`} defaultValue={c.slug} required className="h-8 font-mono text-xs" />
-                            </TableCell>
-                            <TableCell className="py-1.5 text-center">
-                              <input type="checkbox" name="active" form={`upd-${c.id}`} defaultChecked={c.active} className="size-4 accent-primary cursor-pointer" />
-                            </TableCell>
-                            <TableCell className="py-1.5">
-                              <div className="flex items-center justify-end gap-1">
-                                <Button
-                                  type="submit"
-                                  form={`upd-${c.id}`}
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 w-8 p-0 text-green-600 hover:bg-green-50 hover:text-green-700"
-                                  title="Save"
-                                >
-                                  <Check className="h-4 w-4" />
-                                </Button>
-                                <ConfirmFormButton
-                                  form={`del-${c.id}`}
-                                  message={`Delete "${c.name}"? Remove it from products first if the delete fails.`}
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                  title="Delete"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </ConfirmFormButton>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                            </div>
+                            <div className="flex flex-col items-end pt-5">
+                              <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+                                Active
+                                <input type="checkbox" name="active" form={`upd-${c.id}`} defaultChecked={c.active} className="size-4 accent-primary cursor-pointer rounded" />
+                              </label>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <span className="text-[10px] uppercase text-muted-foreground font-semibold tracking-wider">Display Name</span>
+                              <Input name="name" form={`upd-${c.id}`} defaultValue={c.name} required className="h-9" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <span className="text-[10px] uppercase text-muted-foreground font-semibold tracking-wider">Slug</span>
+                              <Input name="slug" form={`upd-${c.id}`} defaultValue={c.slug} required className="h-9 font-mono text-xs" />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-end gap-2 pt-3 mt-1 border-t border-slate-100">
+                            <ConfirmFormButton
+                              form={`del-${c.id}`}
+                              message={`Delete "${c.name}"? Remove it from products first if the delete fails.`}
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            >
+                              <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                              Delete
+                            </ConfirmFormButton>
+                            <Button
+                              type="submit"
+                              form={`upd-${c.id}`}
+                              size="sm"
+                              variant="secondary"
+                              className="h-8 px-3 text-green-700 bg-green-100 hover:bg-green-200"
+                            >
+                              <Check className="h-3.5 w-3.5 mr-1.5" />
+                              Save
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </>
                 )}
               </Card>
